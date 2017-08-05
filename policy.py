@@ -4,8 +4,8 @@ import numpy as np
 import tensorflow as tf
 
 import agent
+import train
 import debug
-from utils import *
 
 def dense(x, out_dim, name = "dense"):
     with tf.name_scope(name):
@@ -120,12 +120,9 @@ class Policy(agent.Agent):
 
 def run():
     import gym
-    env = monitored(
-        gym.make('CartPole-v0'),
-        video_callable = lambda ep: ep % 100 == 0
-    )
+    env = gym.make('CartPole-v0')
     agt = Policy(env.observation_space.shape, env.action_space.n)
-    train(env, agt, 50000)
+    train.train(env, agt)
 
 if __name__ == "__main__":
     run()

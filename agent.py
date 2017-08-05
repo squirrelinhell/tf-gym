@@ -1,6 +1,4 @@
 
-from utils import *
-
 class Agent:
     def __str__(self):
         return "<Agent>"
