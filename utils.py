@@ -2,7 +2,7 @@
 import os
 import sys
 
-def monitored(env):
+def monitored(env, video_callable = False):
     import gym.wrappers
     n = 1
     while os.path.exists("/tmp/log-" + str(n)):
@@ -10,10 +10,11 @@ def monitored(env):
     return gym.wrappers.Monitor(
         env,
         "/tmp/log-" + str(n),
-        video_callable = False
+        video_callable = video_callable
     )
 
 def live_plot(xy, x_max = 1.0, y_max = 1.0):
+    show = "DISPLAY" in os.environ and len(os.environ["DISPLAY"]) > 0
     axes = None
     xs, ys = [], []
     for x, y in xy:
@@ -23,7 +24,7 @@ def live_plot(xy, x_max = 1.0, y_max = 1.0):
         ys.append(y)
         x_max = max(x, x_max)
         y_max = max(y, y_max)
-        if "DISPLAY" in os.environ and len(os.environ["DISPLAY"]) > 0:
+        if show:
             import matplotlib.pyplot as plt
             plt.ion()
             if axes is None:
@@ -33,6 +34,8 @@ def live_plot(xy, x_max = 1.0, y_max = 1.0):
             axes.set_ylim([0, y_max])
             plt.plot(xs, ys, marker='o', color='black')
             plt.pause(0.01)
+    if show:
+        plt.pause(3600.0)
 
 def train(env, agent, n_steps = 1000000):
     live_plot(__train_iter(env, agent, n_steps), n_steps)
