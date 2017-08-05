@@ -3,6 +3,7 @@
 import numpy as np
 
 import agent
+import debug
 from utils import *
 
 class QLearning(agent.Agent):
@@ -38,8 +39,8 @@ class QLearning(agent.Agent):
 def run():
     import gym
     env = monitored(gym.make('FrozenLake-v0'))
-    agent = QLearning(env.observation_space.n, env.action_space.n)
-    agent.train(env, 100000)
+    agt = QLearning(env.observation_space.n, env.action_space.n)
+    train(env, agt, 100000)
 
 if __name__ == "__main__":
     run()

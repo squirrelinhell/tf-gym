@@ -7,7 +7,11 @@ def monitored(env):
     n = 1
     while os.path.exists("/tmp/log-" + str(n)):
         n += 1
-    return gym.wrappers.Monitor(env, "/tmp/log-" + str(n))
+    return gym.wrappers.Monitor(
+        env,
+        "/tmp/log-" + str(n),
+        video_callable = False
+    )
 
 def live_plot(xy, x_max = 1.0, y_max = 1.0):
     axes = None
@@ -29,3 +33,24 @@ def live_plot(xy, x_max = 1.0, y_max = 1.0):
             axes.set_ylim([0, y_max])
             plt.plot(xs, ys, marker='o', color='black')
             plt.pause(0.01)
+
+def train(env, agent, n_steps = 1000000):
+    live_plot(__train_iter(env, agent, n_steps), n_steps)
+
+def __train_iter(env, agent, n_steps):
+    obs, reward, done = env.reset(), 0.0, False
+    episodes, r_sum = 0, 0.0
+
+    for t in range(1, n_steps + 1):
+        r_sum += reward
+        action = agent.step(obs, reward, done)
+
+        if done:
+            episodes += 1
+            obs, reward, done = env.reset(), 0.0, False
+        else:
+            obs, reward, done, _ = env.step(action)
+
+        if episodes >= 100:
+            yield t, r_sum / episodes
+            episodes, r_sum = 0, 0.0
