@@ -25,9 +25,12 @@ def dense(x, out_dim, name = "dense"):
         )
         return tf.matmul(x, w) + b
 
-class Policy(agent.Agent):
-    def __init__(self, obs_shape, n_actions):
+class PolicyAgent(agent.Agent):
+    def __init__(self, obs_shape, n_actions,
+            half_decay = 10, batch_size = 128):
         self.n_actions = n_actions
+        self.discount = np.power(0.5, 1/half_decay)
+        self.batch_size = batch_size
 
         # Policy network
         self.obs = tf.placeholder(tf.float32, obs_shape)
@@ -80,14 +83,15 @@ class Policy(agent.Agent):
         return action
 
     def __compute_gradients(self):
-        if len(self.hist_buffer) < 10:
+        if len(self.hist_buffer) < 100:
             return
 
         obs, reward, action = self.hist_buffer[0]
         self.hist_buffer = self.hist_buffer[1:]
 
         sum_r = 0.0
-        for _, r, _ in self.hist_buffer:
+        for _, r, _ in reversed(self.hist_buffer):
+            sum_r *= self.discount
             sum_r += r
 
         grads = self.sess.run(
@@ -101,7 +105,7 @@ class Policy(agent.Agent):
         self.grad_buffer.append(grads)
 
     def __apply_gradients(self):
-        if len(self.grad_buffer) < 512:
+        if len(self.grad_buffer) < self.batch_size:
             return
 
         grads = self.grad_buffer[0]
@@ -121,8 +125,13 @@ class Policy(agent.Agent):
 def run():
     import gym
     env = gym.make('CartPole-v0')
-    agt = Policy(env.observation_space.shape, env.action_space.n)
-    train.train(env, agt)
+
+    agt = PolicyAgent(
+        env.observation_space.shape,
+        env.action_space.n
+    )
+
+    train.train(env, agt, 50000)
 
 if __name__ == "__main__":
     run()

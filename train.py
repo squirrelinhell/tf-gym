@@ -1,22 +1,30 @@
 
+import os
 import numpy as np
 
-def train(env, agent, n_episodes = 1000):
+def train(env, agent, n_steps, log_dir = None):
+    if log_dir is None:
+        log_dir = __get_log_dir()
+    else:
+        if os.path.exists(log_dir):
+            raise ValueError("Directory already exists: %s" % log_dir)
+
     import gym.wrappers
-    log_dir = __get_log_dir()
     env = gym.wrappers.Monitor(env, log_dir)
 
+    done = True
     history = []
-    for episode in range(n_episodes):
-        obs, reward, done = env.reset(), 0.0, False
-        steps, r_sum = 0, 0.0
-        while not done:
-            action = agent.step(obs, reward, done)
+    r_sum, steps = 0.0, 0
+    for t in range(n_steps):
+        if done:
+            history.append([t, len(history), r_sum, steps])
+            r_sum, steps = 0.0, 0
+            obs, reward, done = env.reset(), 0.0, False
+        else:
             obs, reward, done, _ = env.step(action)
-            steps += 1
             r_sum += reward
-        agent.step(obs, reward, done)
-        history.append([episode, r_sum, steps])
+            steps += 1
+        action = agent.step(obs, reward, done)
 
     env.close()
     __save_plot(log_dir, history)
@@ -24,11 +32,18 @@ def train(env, agent, n_episodes = 1000):
 def __save_plot(log_dir, history):
     history = np.array(history)
     import matplotlib.pyplot as plt
+
     fig, [ax1, ax2] = plt.subplots(nrows=2, sharex=True)
-    __format_plot(ax1, history[:,[0,1]], "reward", "r-")
-    __format_plot(ax2, history[:,[0,2]], "length", "b-")
-    fig.tight_layout()
+    ax2.set_xlabel("episode")
+    __format_plot(ax1, history[:,[1,2]], "reward", "r-")
+    __format_plot(ax2, history[:,[1,3]], "episode length", "b-")
     fig.savefig(log_dir + "/by_episode.png")
+
+    fig, [ax1, ax2] = plt.subplots(nrows=2, sharex=True)
+    ax2.set_xlabel("step")
+    __format_plot(ax1, history[:,[0,2]], "reward", "r-")
+    __format_plot(ax2, history[:,[0,3]], "episode length", "b-")
+    fig.savefig(log_dir + "/by_step.png")
 
 def __batch_avg(data, batch):
     n = len(data) // batch
@@ -47,10 +62,10 @@ def __format_plot(ax, xy, label, style):
     ax.set_ylabel(label, color=style[0])
     ax.tick_params("y", colors=style[0])
     ax.grid()
+    ax.figure.tight_layout()
 
 def __get_log_dir():
-    import os
     n = 1
-    while os.path.exists("__log%05d" % n):
+    while os.path.exists("/tmp/log%05d" % n):
         n += 1
-    return "__log%05d" % n
+    return "/tmp/log%05d" % n

@@ -40,7 +40,7 @@ def run():
     import gym
     env = gym.make('FrozenLake-v0')
     agt = QLearning(env.observation_space.n, env.action_space.n)
-    train.train(env, agt)
+    train.train(env, agt, 100000)
 
 if __name__ == "__main__":
     run()
