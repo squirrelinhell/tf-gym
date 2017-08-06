@@ -2,18 +2,34 @@
 
 import os
 import sys
+import time
 import numpy as np
 
 import debug
 
-def train(env, agent, n_steps, results_file = None):
-    results_file = __check_output_path(results_file, "RESULTS_FILE")
+def train(env, agent, n_steps, log_dir = None):
+    if log_dir is None and "LOG_DIR" in os.environ:
+        if len(os.environ["LOG_DIR"]) >= 1:
+            log_dir = os.environ["LOG_DIR"]
+
+    if log_dir is not None:
+        import gym.wrappers
+        env = gym.wrappers.Monitor(
+            env,
+            log_dir,
+            video_callable = lambda x: x%100 == 0,
+            force = True
+        )
+
     history = []
     obs, reward, done = env.reset(), 0.0, False
     ep_r, ep_steps = 0.0, 0
+    train_time, agent_time = time.time(), 0.0
 
     for t in range(n_steps):
+        step_time = time.time()
         action = agent.step(obs, reward, done)
+        agent_time += time.time() - step_time
 
         if done:
             history.append([t + 1, ep_r, ep_steps])
@@ -24,35 +40,48 @@ def train(env, agent, n_steps, results_file = None):
             ep_r += reward
             ep_steps += 1
 
-    if results_file is not None:
+    train_time = time.time() - train_time
+    sys.stderr.write(
+        "Finished in %.2fs: %.2f steps/s, %.1f%% agent time\n" %
+        (train_time, n_steps/train_time, 100.0*agent_time/train_time)
+    )
+    sys.stderr.flush()
+
+    if log_dir is not None:
+        env.close()
         np.savetxt(
-            results_file,
+            log_dir + "/results.csv",
             history,
-            fmt="%10d %10.2f %10d",
-            header="    step  ep_reward   ep_steps"
+            fmt = "%10d %10.2f %10d",
+            header = "    step  ep_reward   ep_steps"
         )
 
 def get_run_args():
     import sys
-    import re
     args = dict()
     for a in ("_".join(sys.argv[1:])).split("_"):
-        m = re.search("^([^0-9.-=]+)[=]?([0-9.-]*)$", a)
-        if m is None:
-            raise ValueError("Invalid argument: " + a)
-        a, val = m.groups()
-        if a == "run":
+        if ":" not in a:
             continue
-        if "." in val:
-            args[a] = float(val)
-        elif len(val) >= 1:
-            args[a] = int(val)
-        else:
+        a, val = a.split(":", 1)
+        if val[0] in "0123456789-":
+            if "." in val:
+                args[a] = float(val)
+            elif len(val) >= 1:
+                args[a] = int(val)
+        elif val == "true":
             args[a] = True
+        elif val == "false":
+            args[a] = False
+        elif val == "none":
+            args[a] = None
+        else:
+            args[a] = val
     return args
 
 def plot_results(*result_files):
-    plot_file = __check_output_path(None, "PLOT_FILE")
+    plot_file = None
+    if "PLOT_FILE" in os.environ and len(os.environ["PLOT_FILE"]) >= 1:
+        plot_file = os.environ["PLOT_FILE"]
 
     import matplotlib
     if plot_file is not None:
@@ -87,10 +116,9 @@ def plot_results(*result_files):
         fig.savefig(plot_file, dpi=100)
 
 def __plot_name(path):
+    if path.endswith("/results.csv"):
+        path = path[:-12]
     path = os.path.basename(path)
-    dot = path.rfind(".")
-    if dot >= 1:
-        path = path[0:dot]
     return path.replace("_", " ")
 
 def __batch_avg(data, batch):
@@ -106,18 +134,6 @@ def __add_plot(ax, x, y, color):
         xy = __batch_avg(xy, max(5, len(xy) // 100))
     ax.plot(xy[:,0], xy[:,1], "w-", linewidth=4, zorder=11)
     ax.plot(xy[:,0], xy[:,1], color + "-", linewidth=2, zorder=12)
-
-def __check_output_path(path, env=None):
-    if path is None and env is not None:
-        if env in os.environ and len(os.environ[env]) >= 1:
-            path = os.environ[env]
-    if path is not None:
-        dirname = os.path.dirname(path)
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-        if os.path.exists(path):
-            os.remove(path)
-    return path
 
 def run():
     if len(sys.argv) >= 3 and sys.argv[1] == "plot":

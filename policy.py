@@ -27,23 +27,26 @@ def dense(x, out_dim, name = "dense"):
 
 class PolicyAgent(agent.Agent):
     def __init__(self, obs_shape, n_actions,
-            discount = 0.9, batch = 128, stepreward = 0.01):
+            discount = 0.9, histlen = 100, batch = 128,
+            lr = 0.01, eps = 0.0001,
+            endpenalty = -100, hiddenlayer = 8):
         self.n_actions = n_actions
         self.discount = discount
+        self.histlen = histlen
         self.batch = batch
-        self.stepreward = stepreward
+        self.endpenalty = endpenalty
 
         # Policy network
         self.obs = tf.placeholder(tf.float32, obs_shape)
-        self.policy = self.__policy(self.obs)
+        self.policy = self.__policy(self.obs, hiddenlayer)
 
         # Compute gradients
         self.reward = tf.placeholder(tf.float32, [])
         self.action = tf.placeholder(tf.int32, [])
         loss = -tf.log(self.policy[self.action]) * self.reward
         opt = tf.train.AdamOptimizer(
-            learning_rate=0.01,
-            epsilon=0.0001
+            learning_rate = lr,
+            epsilon = eps
         )
         grads = opt.compute_gradients(loss)
         self.grads = [t[0] for t in grads]
@@ -61,15 +64,16 @@ class PolicyAgent(agent.Agent):
         self.hist_buffer = []
         self.grad_buffer = []
 
-    def __policy(self, x):
-        x = dense(x, 8)
+    def __policy(self, x, hiddenlayer):
+        x = dense(x, hiddenlayer)
         x = tf.nn.relu(x)
         x = dense(x, self.n_actions)
         x = tf.reshape(x, [-1])
         return tf.nn.softmax(x)
 
     def step(self, obs, reward, done):
-        reward = -1.0 if done else self.stepreward
+        if done:
+            reward = self.endpenalty
 
         policy = self.sess.run(
             self.policy,
@@ -84,7 +88,7 @@ class PolicyAgent(agent.Agent):
         return action
 
     def __compute_gradients(self):
-        if len(self.hist_buffer) < 100:
+        if len(self.hist_buffer) < self.histlen:
             return
 
         obs, reward, action = self.hist_buffer[0]
@@ -123,17 +127,17 @@ class PolicyAgent(agent.Agent):
     def __str__(self):
         return str(np.round(self.v, 2))
 
-def run():
+def run(env = "CartPole-v1", **args):
     import gym
-    env = gym.make('CartPole-v0')
+    env = gym.make(env)
 
     agt = PolicyAgent(
         env.observation_space.shape,
         env.action_space.n,
-        **train.get_run_args()
+        **args
     )
 
     train.train(env, agt, 50000)
 
 if __name__ == "__main__":
-    run()
+    run(**train.get_run_args())

@@ -8,60 +8,46 @@ all: \
 	policy \
 
 qlearning: \
-	$(RESULTS_DIR)/qlearning_avg.png \
-	$(RESULTS_DIR)/qlearning_all.png \
+	qlearning_all.png \
+	qlearning_avg.png \
 
 policy: \
-	$(RESULTS_DIR)/policy_batch.png \
-	$(RESULTS_DIR)/policy_discount.png \
-	$(RESULTS_DIR)/policy_stepreward.png \
-
-$(RESULTS_DIR)/policy_batch.png: \
-	$(RESULTS_DIR)/avg/policy.csv \
-	$(RESULTS_DIR)/avg/policy_batch32.csv \
-	$(RESULTS_DIR)/avg/policy_batch512.csv
-	@echo ./train.py plot '->' $@
-	@PLOT_FILE=$@ ./train.py plot $^
-
-$(RESULTS_DIR)/policy_discount.png: \
-	$(RESULTS_DIR)/avg/policy.csv \
-	$(RESULTS_DIR)/avg/policy_discount0.7.csv \
-	$(RESULTS_DIR)/avg/policy_discount0.99.csv
-	@echo ./train.py plot '->' $@
-	@PLOT_FILE=$@ ./train.py plot $^
-
-$(RESULTS_DIR)/policy_stepreward.png: \
-	$(RESULTS_DIR)/avg/policy.csv \
-	$(RESULTS_DIR)/avg/policy_stepreward0.csv \
-	$(RESULTS_DIR)/avg/policy_stepreward0.1.csv
-	@echo ./train.py plot '->' $@
-	@PLOT_FILE=$@ ./train.py plot $^
+	policy_all.png \
+	policy_batch\:32_all.png \
+	policy_batch\:512_all.png \
+	policy_discount\:0.5_all.png \
+	policy_discount\:0.99_all.png \
 
 # Global
 
 .SECONDARY:
 
-$(RESULTS_DIR)/%_all.png: \
-		$(RESULTS_DIR)/run/%_run1.csv \
-		$(RESULTS_DIR)/run/%_run2.csv \
-		$(RESULTS_DIR)/run/%_run3.csv \
-		$(RESULTS_DIR)/run/%_run4.csv
+%_one.png: $(RESULTS_DIR)/%_run1/results.csv
 	@echo ./train.py plot '->' $@
 	@PLOT_FILE=$@ ./train.py plot $^
 
-$(RESULTS_DIR)/%_avg.png: $(RESULTS_DIR)/avg/%.csv
+%_all.png: \
+		$(RESULTS_DIR)/%_run1/results.csv \
+		$(RESULTS_DIR)/%_run2/results.csv \
+		$(RESULTS_DIR)/%_run3/results.csv \
+		$(RESULTS_DIR)/%_run4/results.csv
 	@echo ./train.py plot '->' $@
 	@PLOT_FILE=$@ ./train.py plot $^
 
-$(RESULTS_DIR)/run/%.csv:
+%_avg.png: $(RESULTS_DIR)/avg/%_avg4
+	@echo ./train.py plot '->' $@
+	@PLOT_FILE=$@ ./train.py plot $^
+
+$(RESULTS_DIR)/%/results.csv:
 	@echo ./$(firstword $(subst _, ,$*)).py '->' $@
-	@RESULTS_FILE=$@ ./$(firstword $(subst _, ,$*)).py \
-		$(subst $(firstword $(subst _, ,$*))_,,$*)
+	@LOG_DIR=$(RESULTS_DIR)/$* \
+		./$(firstword $(subst _, ,$*)).py \
+			$(subst $(firstword $(subst _, ,$*))_,,$*)
 
-$(RESULTS_DIR)/avg/%.csv: \
-		$(RESULTS_DIR)/run/%_run1.csv \
-		$(RESULTS_DIR)/run/%_run2.csv \
-		$(RESULTS_DIR)/run/%_run3.csv \
-		$(RESULTS_DIR)/run/%_run4.csv
+$(RESULTS_DIR)/avg/%_avg4: \
+		$(RESULTS_DIR)/%_run1/results.csv \
+		$(RESULTS_DIR)/%_run2/results.csv \
+		$(RESULTS_DIR)/%_run3/results.csv \
+		$(RESULTS_DIR)/%_run4/results.csv
 	@mkdir -p $(dir $@)
 	@cat $^ | sort -n | tail -n +4 > $@

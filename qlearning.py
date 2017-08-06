@@ -36,11 +36,15 @@ class QLearning(agent.Agent):
     def __str__(self):
         return str(np.round(self.v, 2))
 
-def run():
+def run(env = "FrozenLake-v0", **args):
     import gym
-    env = gym.make('FrozenLake-v0')
-    agt = QLearning(env.observation_space.n, env.action_space.n)
+    env = gym.make(env)
+    agt = QLearning(
+        env.observation_space.n,
+        env.action_space.n,
+        **args
+    )
     train.train(env, agt, 100000)
 
 if __name__ == "__main__":
-    run()
+    run(**train.get_run_args())
