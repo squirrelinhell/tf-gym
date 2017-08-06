@@ -27,7 +27,7 @@ def dense(x, out_dim, name = "dense"):
 
 class PolicyAgent(agent.Agent):
     def __init__(self, obs_shape, n_actions,
-            discount = 0.9, histlen = 100, batch = 128,
+            discount = 0.9, histlen = 500, batch = 128,
             lr = 0.01, eps = 0.0001,
             endpenalty = -100, hiddenlayer = 8):
         self.n_actions = n_actions

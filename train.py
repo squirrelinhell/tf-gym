@@ -12,12 +12,13 @@ def train(env, agent, n_steps, log_dir = None):
         if len(os.environ["LOG_DIR"]) >= 1:
             log_dir = os.environ["LOG_DIR"]
 
+    video = []
     if log_dir is not None:
         import gym.wrappers
         env = gym.wrappers.Monitor(
             env,
             log_dir,
-            video_callable = lambda x: x%100 == 0,
+            video_callable = lambda x: len(video) > 0 and video.pop(),
             force = True
         )
 
@@ -27,6 +28,9 @@ def train(env, agent, n_steps, log_dir = None):
     train_time, agent_time = time.time(), 0.0
 
     for t in range(n_steps):
+        if (t+1) % max(100, n_steps//10) == 0:
+            video.append(True)
+
         step_time = time.time()
         action = agent.step(obs, reward, done)
         agent_time += time.time() - step_time
