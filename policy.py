@@ -26,10 +26,12 @@ def dense(x, out_dim, name = "dense"):
         return tf.matmul(x, w) + b
 
 class PolicyAgent(agent.Agent):
-    def __init__(self, obs_shape, n_actions, decay = 10, batch = 128):
+    def __init__(self, obs_shape, n_actions,
+            discount = 0.9, batch = 128, stepreward = 0.01):
         self.n_actions = n_actions
-        self.discount = np.power(0.5, 1/decay)
-        self.batch_size = batch
+        self.discount = discount
+        self.batch = batch
+        self.stepreward = stepreward
 
         # Policy network
         self.obs = tf.placeholder(tf.float32, obs_shape)
@@ -67,7 +69,7 @@ class PolicyAgent(agent.Agent):
         return tf.nn.softmax(x)
 
     def step(self, obs, reward, done):
-        reward = -1.0 if done else 0.01
+        reward = -1.0 if done else self.stepreward
 
         policy = self.sess.run(
             self.policy,
@@ -104,7 +106,7 @@ class PolicyAgent(agent.Agent):
         self.grad_buffer.append(grads)
 
     def __apply_gradients(self):
-        if len(self.grad_buffer) < self.batch_size:
+        if len(self.grad_buffer) < self.batch:
             return
 
         grads = self.grad_buffer[0]

@@ -8,11 +8,34 @@ all: \
 	policy \
 
 qlearning: \
+	$(RESULTS_DIR)/qlearning_avg.png \
 	$(RESULTS_DIR)/qlearning_all.png \
 
 policy: \
-	$(RESULTS_DIR)/policy_decay5_avg.png \
-	$(RESULTS_DIR)/policy_decay10_avg.png \
+	$(RESULTS_DIR)/policy_batch.png \
+	$(RESULTS_DIR)/policy_discount.png \
+	$(RESULTS_DIR)/policy_stepreward.png \
+
+$(RESULTS_DIR)/policy_batch.png: \
+	$(RESULTS_DIR)/avg/policy.csv \
+	$(RESULTS_DIR)/avg/policy_batch32.csv \
+	$(RESULTS_DIR)/avg/policy_batch512.csv
+	@echo ./train.py plot '->' $@
+	@PLOT_FILE=$@ ./train.py plot $^
+
+$(RESULTS_DIR)/policy_discount.png: \
+	$(RESULTS_DIR)/avg/policy.csv \
+	$(RESULTS_DIR)/avg/policy_discount0.7.csv \
+	$(RESULTS_DIR)/avg/policy_discount0.99.csv
+	@echo ./train.py plot '->' $@
+	@PLOT_FILE=$@ ./train.py plot $^
+
+$(RESULTS_DIR)/policy_stepreward.png: \
+	$(RESULTS_DIR)/avg/policy.csv \
+	$(RESULTS_DIR)/avg/policy_stepreward0.csv \
+	$(RESULTS_DIR)/avg/policy_stepreward0.1.csv
+	@echo ./train.py plot '->' $@
+	@PLOT_FILE=$@ ./train.py plot $^
 
 # Global
 

@@ -74,14 +74,24 @@ def plot_results(*result_files):
         __add_plot(ax2, data["step"], data["ep_steps"], color)
         patches.append(matplotlib.patches.Patch(color=color))
 
-    n = [os.path.basename(f).split(".")[0] for f in result_files]
-    plt.figlegend(handles=patches, labels=n, ncol=2, loc=3)
+    plt.figlegend(
+        handles=patches,
+        labels=map(__plot_name, result_files),
+        loc=3
+    )
 
     if plot_file is None:
         plt.show()
     else:
         fig.set_size_inches(8, 6)
         fig.savefig(plot_file, dpi=100)
+
+def __plot_name(path):
+    path = os.path.basename(path)
+    dot = path.rfind(".")
+    if dot >= 1:
+        path = path[0:dot]
+    return path.replace("_", " ")
 
 def __batch_avg(data, batch):
     n = len(data) // batch
