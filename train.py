@@ -16,7 +16,7 @@ def train(env, agent, n_steps, results_file = None):
         action = agent.step(obs, reward, done)
 
         if done:
-            history.append([t + 1, len(history) + 1, ep_r, ep_steps])
+            history.append([t + 1, ep_r, ep_steps])
             obs, reward, done = env.reset(), 0.0, False
             ep_r, ep_steps = 0.0, 0
         else:
@@ -28,8 +28,8 @@ def train(env, agent, n_steps, results_file = None):
         np.savetxt(
             results_file,
             history,
-            fmt="%9d %9d %9.2f %9d",
-            header="   step   episode ep_reward  ep_steps"
+            fmt="%10d %10.2f %10d",
+            header="    step  ep_reward   ep_steps"
         )
 
 def get_run_args():
@@ -60,20 +60,22 @@ def plot_results(*result_files):
     import matplotlib.pyplot as plt
     import matplotlib.patches
     fig, [ax1, ax2] = plt.subplots(nrows=2, sharex=True)
+    fig.tight_layout()
     ax1.set_ylabel("reward/episode")
     ax2.set_ylabel("steps/episode")
     ax2.set_xlabel("step")
+    ax1.grid()
+    ax2.grid()
     patches = []
 
-    for f, color in zip(result_files, ["r", "b", "g", "c", "m"]):
+    for f, color in zip(result_files, "brgcmy"):
         data = np.genfromtxt(f, names=True)
         __add_plot(ax1, data["step"], data["ep_reward"], color)
         __add_plot(ax2, data["step"], data["ep_steps"], color)
         patches.append(matplotlib.patches.Patch(color=color))
 
-    if len(result_files) >= 2:
-        n = [os.path.basename(f).split(".")[0] for f in result_files]
-        plt.figlegend(handles=patches, labels=n, loc=3)
+    n = [os.path.basename(f).split(".")[0] for f in result_files]
+    plt.figlegend(handles=patches, labels=n, ncol=2, loc=3)
 
     if plot_file is None:
         plt.show()
@@ -89,12 +91,11 @@ def __batch_avg(data, batch):
 
 def __add_plot(ax, x, y, color):
     xy = np.vstack((x, y)).T
-    ax.plot(xy[:,0], xy[:,1], color + ".", alpha=0.2, zorder=1)
+    ax.plot(xy[:,0], xy[:,1], color + ".", alpha=0.2, zorder=10)
     if len(xy) >= 20:
         xy = __batch_avg(xy, max(5, len(xy) // 100))
-        ax.plot(xy[:,0], xy[:,1], color + "-", zorder=2)
-    ax.grid()
-    ax.figure.tight_layout()
+    ax.plot(xy[:,0], xy[:,1], "w-", linewidth=4, zorder=11)
+    ax.plot(xy[:,0], xy[:,1], color + "-", linewidth=2, zorder=12)
 
 def __check_output_path(path, env=None):
     if path is None and env is not None:
@@ -103,7 +104,7 @@ def __check_output_path(path, env=None):
     if path is not None:
         dirname = os.path.dirname(path)
         if not os.path.exists(dirname):
-            os.mkdir(dirname)
+            os.makedirs(dirname)
         if os.path.exists(path):
             os.remove(path)
     return path
