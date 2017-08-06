@@ -24,7 +24,6 @@ def train(env, agent, n_steps, results_file = None):
             ep_r += reward
             ep_steps += 1
 
-
     if results_file is not None:
         np.savetxt(
             results_file,
@@ -32,6 +31,25 @@ def train(env, agent, n_steps, results_file = None):
             fmt="%9d %9d %9.2f %9d",
             header="   step   episode ep_reward  ep_steps"
         )
+
+def get_run_args():
+    import sys
+    import re
+    args = dict()
+    for a in ("_".join(sys.argv[1:])).split("_"):
+        m = re.search("^([^0-9.-=]+)[=]?([0-9.-]*)$", a)
+        if m is None:
+            raise ValueError("Invalid argument: " + a)
+        a, val = m.groups()
+        if a == "run":
+            continue
+        if "." in val:
+            args[a] = float(val)
+        elif len(val) >= 1:
+            args[a] = int(val)
+        else:
+            args[a] = True
+    return args
 
 def plot_results(*result_files):
     plot_file = __check_output_path(None, "PLOT_FILE")
@@ -83,8 +101,11 @@ def __check_output_path(path, env=None):
         if env in os.environ and len(os.environ[env]) >= 1:
             path = os.environ[env]
     if path is not None:
+        dirname = os.path.dirname(path)
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
         if os.path.exists(path):
-            raise ValueError("File already exists: %s" % path)
+            os.remove(path)
     return path
 
 def run():

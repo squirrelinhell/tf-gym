@@ -26,11 +26,10 @@ def dense(x, out_dim, name = "dense"):
         return tf.matmul(x, w) + b
 
 class PolicyAgent(agent.Agent):
-    def __init__(self, obs_shape, n_actions,
-            half_decay = 10, batch_size = 128):
+    def __init__(self, obs_shape, n_actions, decay = 10, batch = 128):
         self.n_actions = n_actions
-        self.discount = np.power(0.5, 1/half_decay)
-        self.batch_size = batch_size
+        self.discount = np.power(0.5, 1/decay)
+        self.batch_size = batch
 
         # Policy network
         self.obs = tf.placeholder(tf.float32, obs_shape)
@@ -128,7 +127,8 @@ def run():
 
     agt = PolicyAgent(
         env.observation_space.shape,
-        env.action_space.n
+        env.action_space.n,
+        **train.get_run_args()
     )
 
     train.train(env, agt, 50000)
