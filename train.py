@@ -7,10 +7,10 @@ import numpy as np
 
 import debug
 
-def train(env, agent, n_steps, log_dir = None):
-    if log_dir is None and "LOG_DIR" in os.environ:
-        if len(os.environ["LOG_DIR"]) >= 1:
-            log_dir = os.environ["LOG_DIR"]
+def train(env, agent, n_steps, log_dir = None, n_videos = 0):
+    log_dir = __getenv("LOG_DIR") if log_dir is None else log_dir
+    if n_videos == 0 and __getenv("N_VIDEOS") is not None:
+        n_videos = max(0, int(__getenv("N_VIDEOS")))
 
     video = []
     if log_dir is not None:
@@ -28,7 +28,7 @@ def train(env, agent, n_steps, log_dir = None):
     train_time, agent_time = time.time(), 0.0
 
     for t in range(n_steps):
-        if (t+1) % max(100, n_steps//10) == 0:
+        if (t+1) % max(10, ((n_steps+n_videos+1) // (n_videos+1))) == 0:
             video.append(True)
 
         step_time = time.time()
@@ -83,9 +83,7 @@ def get_run_args():
     return args
 
 def plot_results(*result_files):
-    plot_file = None
-    if "PLOT_FILE" in os.environ and len(os.environ["PLOT_FILE"]) >= 1:
-        plot_file = os.environ["PLOT_FILE"]
+    plot_file = __getenv("PLOT_FILE")
 
     import matplotlib
     if plot_file is not None:
@@ -125,19 +123,25 @@ def __plot_name(path):
     path = os.path.basename(path)
     return path.replace("_", " ")
 
-def __batch_avg(data, batch):
-    n = len(data) // batch
-    data = data[0:batch*n]
-    data = data.reshape((n, batch) + data.shape[1:])
-    return np.mean(data, axis=1)
-
 def __add_plot(ax, x, y, color):
     xy = np.vstack((x, y)).T
     ax.plot(xy[:,0], xy[:,1], color + ".", alpha=0.2, zorder=10)
-    if len(xy) >= 20:
-        xy = __batch_avg(xy, max(5, len(xy) // 100))
+    if len(xy) < 2:
+        return
+    bins = 50
+    rows = []
+    for i, n in enumerate(np.histogram(xy[:,0], bins=bins)[0]):
+        if n >= 1:
+            rows.append(np.mean(xy[0:n], axis=0))
+            xy = xy[n:]
+    xy = np.stack(rows)
     ax.plot(xy[:,0], xy[:,1], "w-", linewidth=4, zorder=11)
     ax.plot(xy[:,0], xy[:,1], color + "-", linewidth=2, zorder=12)
+
+def __getenv(name):
+    if name in os.environ and len(os.environ[name]) >= 1:
+        return os.environ[name]
+    return None
 
 def run():
     if len(sys.argv) >= 3 and sys.argv[1] == "plot":

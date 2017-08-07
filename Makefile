@@ -1,5 +1,5 @@
 
-RESULTS_DIR := __results__
+R := __results__
 
 # Run models
 
@@ -8,46 +8,64 @@ all: \
 	policy \
 
 qlearning: \
-	qlearning_all.png \
-	qlearning_avg.png \
+	$R/qlearning_show4.png \
+	$R/qlearning_avg4.png \
 
 policy: \
-	policy_all.png \
-	policy_batch\:32_all.png \
-	policy_batch\:512_all.png \
-	policy_discount\:0.5_all.png \
-	policy_discount\:0.99_all.png \
+	$R/policy_compare_batch.png \
+
+$R/policy_compare_batch.png: \
+	$R/policy_batch\:128_lr\:0.02_avg16.png \
+	$R/policy_batch\:32_lr\:0.02_avg16.png \
+	$R/policy_batch\:32_lr\:0.005_avg16.png \
+	$R/policy_batch\:512_lr\:0.02_avg16.png \
+	$R/policy_batch\:512_lr\:0.08_avg16.png \
+
+	@echo ./train.py plot '->' $@
+	@PLOT_FILE=$@ ./train.py plot $(patsubst $R/%.png,$R/avg/%,$^)
 
 # Global
 
 .SECONDARY:
 
-%_one.png: $(RESULTS_DIR)/%_run1/results.csv
+$R/%.png: $R/run/%/results.csv
 	@echo ./train.py plot '->' $@
 	@PLOT_FILE=$@ ./train.py plot $^
 
-%_all.png: \
-		$(RESULTS_DIR)/%_run1/results.csv \
-		$(RESULTS_DIR)/%_run2/results.csv \
-		$(RESULTS_DIR)/%_run3/results.csv \
-		$(RESULTS_DIR)/%_run4/results.csv
+$R/%_show4.png: \
+		$R/run/%/results.csv \
+		$R/run/%_run2/results.csv \
+		$R/run/%_run3/results.csv \
+		$R/run/%_run4/results.csv
 	@echo ./train.py plot '->' $@
 	@PLOT_FILE=$@ ./train.py plot $^
 
-%_avg.png: $(RESULTS_DIR)/avg/%_avg4
+$R/%_avg4.png: $R/avg/%_avg4
 	@echo ./train.py plot '->' $@
 	@PLOT_FILE=$@ ./train.py plot $^
 
-$(RESULTS_DIR)/%/results.csv:
+$R/%_avg16.png: $R/avg/%_avg16
+	@echo ./train.py plot '->' $@
+	@PLOT_FILE=$@ ./train.py plot $^
+
+$R/run/%/results.csv:
 	@echo ./$(firstword $(subst _, ,$*)).py '->' $@
-	@LOG_DIR=$(RESULTS_DIR)/$* \
+	@LOG_DIR=$R/run/$* \
 		./$(firstword $(subst _, ,$*)).py \
 			$(subst $(firstword $(subst _, ,$*))_,,$*)
 
-$(RESULTS_DIR)/avg/%_avg4: \
-		$(RESULTS_DIR)/%_run1/results.csv \
-		$(RESULTS_DIR)/%_run2/results.csv \
-		$(RESULTS_DIR)/%_run3/results.csv \
-		$(RESULTS_DIR)/%_run4/results.csv
+$R/avg/%_avg4: \
+		$R/run/%/results.csv \
+		$R/run/%_run2/results.csv \
+		$R/run/%_run3/results.csv \
+		$R/run/%_run4/results.csv
+	@mkdir -p $(dir $@)
+	@cat $^ | sort -n | tail -n +4 > $@
+
+$R/avg/%_avg16: \
+		$R/avg/%_avg4 \
+		$R/avg/%_run2_avg4 \
+		$R/avg/%_run3_avg4 \
+		$R/avg/%_run4_avg4
 	@mkdir -p $(dir $@)
 	@cat $^ | sort -n | tail -n +4 > $@

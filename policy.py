@@ -43,7 +43,7 @@ def gradient(x):
 class PolicyAgent(agent.Agent):
     def __init__(self, obs_shape, n_actions,
             discount = 0.9, histlen = 500, batch = 128,
-            lr = 0.01, eps = 0.0001,
+            lr = 0.02, eps = 0.0001,
             endpenalty = -100, hiddenlayer = 8):
         self.discount = discount
         self.histlen = histlen
@@ -64,10 +64,10 @@ class PolicyAgent(agent.Agent):
 
         # Apply gradients
         self.grad_in = tf.placeholder(tf.float32, self.elasticity.shape)
-        self.grad_apply = tf.train.AdamOptimizer(
+        self.grad_ascend = tf.train.AdamOptimizer(
             learning_rate = lr,
             epsilon = eps
-        ).apply_gradients(split_gradient(self.grad_in))
+        ).apply_gradients(split_gradient(-self.grad_in))
 
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
@@ -102,14 +102,14 @@ class PolicyAgent(agent.Agent):
             sum_r *= self.discount
             sum_r += r
 
-        self.grad_buffer.append(elasticity * (-sum_r))
+        self.grad_buffer.append(elasticity * sum_r)
 
     def __apply_gradients(self):
         if len(self.grad_buffer) < self.batch:
             return
 
         self.sess.run(
-            self.grad_apply,
+            self.grad_ascend,
             feed_dict = {
                 self.grad_in: np.mean(self.grad_buffer, axis=0)
             }
