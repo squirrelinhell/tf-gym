@@ -42,12 +42,16 @@ def gradient(x):
 
 class PolicyAgent(agent.Agent):
     def __init__(self, obs_shape, n_actions,
-            discount = 0.9, histlen = 500, batch = 128,
-            lr = 0.02, eps = 0.0001,
+            discount = 0.9, horizon = 500, batch = 128,
+            lr = 0.02, eps = 0.0001, normalize = "mean",
             endpenalty = -100, hiddenlayer = 8):
         self.discount = discount
-        self.histlen = histlen
+        self.horizon = horizon
         self.batch = batch
+        self.normalize = {
+            "off": lambda x: x,
+            "mean": lambda x: x - x.mean()
+        }[normalize]
         self.endpenalty = endpenalty
 
         # Policy network
@@ -72,8 +76,7 @@ class PolicyAgent(agent.Agent):
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
-        self.hist_buffer = []
-        self.grad_buffer = []
+        self.history = []
 
     def step(self, obs, reward, done):
         if done:
@@ -83,38 +86,37 @@ class PolicyAgent(agent.Agent):
             [self.action, self.elasticity],
             feed_dict={self.obs: obs}
         )
-        self.hist_buffer.append((reward, elasticity))
 
-        self.__compute_gradients()
-        self.__apply_gradients()
+        self.history.append((reward, elasticity))
+        self.__learn()
 
         return action
 
-    def __compute_gradients(self):
-        if len(self.hist_buffer) < self.histlen:
-            return
-
-        reward, elasticity = self.hist_buffer[0]
-        self.hist_buffer = self.hist_buffer[1:]
+    def __advantage(self, t):
+        rs = self.history[t+1:t+1+self.horizon]
+        assert len(rs) == self.horizon
 
         sum_r = 0.0
-        for r, _ in reversed(self.hist_buffer):
+        for r, _ in reversed(rs):
             sum_r *= self.discount
             sum_r += r
+        return sum_r
 
-        self.grad_buffer.append(elasticity * sum_r)
-
-    def __apply_gradients(self):
-        if len(self.grad_buffer) < self.batch:
+    def __learn(self):
+        if len(self.history) < self.horizon + self.batch:
             return
+
+        advans = [self.__advantage(t) for t in range(self.batch)]
+        advans = self.normalize(np.array(advans))
+        elasts = [h[1] for h in self.history[0:self.batch]]
+        self.history = self.history[self.batch:]
 
         self.sess.run(
             self.grad_ascend,
             feed_dict = {
-                self.grad_in: np.mean(self.grad_buffer, axis=0)
+                self.grad_in: np.dot(advans, elasts)
             }
         )
-        self.grad_buffer = []
 
     def __str__(self):
         return str(np.round(self.v, 2))

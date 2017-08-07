@@ -72,12 +72,6 @@ def get_run_args():
                 args[a] = float(val)
             elif len(val) >= 1:
                 args[a] = int(val)
-        elif val == "true":
-            args[a] = True
-        elif val == "false":
-            args[a] = False
-        elif val == "none":
-            args[a] = None
         else:
             args[a] = val
     return args

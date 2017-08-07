@@ -12,7 +12,15 @@ qlearning: \
 	$R/qlearning_avg4.png \
 
 policy: \
+	$R/policy_compare_normalize.png \
 	$R/policy_compare_batch.png \
+
+$R/policy_compare_normalize.png: \
+	$R/policy_normalize\:mean_avg16.png \
+	$R/policy_normalize\:off_avg16.png \
+
+	@echo ./train.py plot '->' $@
+	@PLOT_FILE=$@ ./train.py plot $(patsubst $R/%.png,$R/avg/%,$^)
 
 $R/policy_compare_batch.png: \
 	$R/policy_batch\:100_lr\:0.02_avg16.png \
