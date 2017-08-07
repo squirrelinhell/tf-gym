@@ -123,18 +123,17 @@ def __plot_name(path):
     path = os.path.basename(path)
     return path.replace("_", " ")
 
+def __batch_avg(data, batch):
+    n = len(data) // batch
+    data = data[0:batch*n]
+    data = data.reshape((n, batch) + data.shape[1:])
+    return np.mean(data, axis=1)
+
 def __add_plot(ax, x, y, color):
     xy = np.vstack((x, y)).T
     ax.plot(xy[:,0], xy[:,1], color + ".", alpha=0.2, zorder=10)
-    if len(xy) < 2:
-        return
-    bins = 50
-    rows = []
-    for i, n in enumerate(np.histogram(xy[:,0], bins=bins)[0]):
-        if n >= 1:
-            rows.append(np.mean(xy[0:n], axis=0))
-            xy = xy[n:]
-    xy = np.stack(rows)
+    if len(xy) >= 20:
+        xy = __batch_avg(xy, max(5, len(xy) // 50))
     ax.plot(xy[:,0], xy[:,1], "w-", linewidth=4, zorder=11)
     ax.plot(xy[:,0], xy[:,1], color + "-", linewidth=2, zorder=12)
 
