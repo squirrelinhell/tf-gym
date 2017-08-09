@@ -1,11 +1,8 @@
-#!/usr/bin/env python3
 
 import numpy as np
 import tensorflow as tf
 
-import agent
-import train
-import debug
+import agents
 
 def dense(x, out_dim, name = "dense"):
     with tf.name_scope(name):
@@ -40,8 +37,8 @@ def gradient(x):
         ]
     )
 
-class PolicyAgent(agent.Agent):
-    def __init__(self, obs_shape, n_actions,
+class PolicyAgent(agents.Agent):
+    def __init__(self, o_space, a_space,
             discount = 0.9, horizon = 500, batch = 128,
             lr = 0.02, eps = 0.0001, normalize = "mean",
             endpenalty = -100, hiddenlayer = 8):
@@ -55,11 +52,11 @@ class PolicyAgent(agent.Agent):
         self.endpenalty = endpenalty
 
         # Policy network
-        self.obs = tf.placeholder(tf.float32, obs_shape)
+        self.obs = tf.placeholder(tf.float32, o_space.shape)
         y = tf.reshape(self.obs, [1, -1])
         y = dense(y, hiddenlayer)
         y = tf.nn.relu(y)
-        y = dense(y, n_actions)
+        y = dense(y, a_space.n)
         self.action = tf.to_int32(tf.multinomial(y, 1))[0][0]
         y = tf.nn.softmax(y[0])
         self.elasticity, split_gradient = gradient(
@@ -117,21 +114,3 @@ class PolicyAgent(agent.Agent):
                 self.grad_in: np.dot(advans, elasts)
             }
         )
-
-    def __str__(self):
-        return str(np.round(self.v, 2))
-
-def run(env = "CartPole-v1", trainsteps = 50000, **args):
-    import gym
-    env = gym.make(env)
-
-    agt = PolicyAgent(
-        env.observation_space.shape,
-        env.action_space.n,
-        **args
-    )
-
-    train.train(env, agt, trainsteps)
-
-if __name__ == "__main__":
-    run(**train.get_run_args())

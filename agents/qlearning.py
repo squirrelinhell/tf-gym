@@ -1,14 +1,11 @@
-#!/usr/bin/env python3
 
 import numpy as np
 
-import agent
-import train
-import debug
+import agents
 
-class QLearning(agent.Agent):
-    def __init__(self, n_states, n_actions, lr = 0.03, discount = 0.9):
-        self.v = np.random.rand(n_states, n_actions) * 0.1 - 0.05
+class QLearning(agents.Agent):
+    def __init__(self, o_space, a_space, lr = 0.03, discount = 0.9):
+        self.v = np.random.rand(o_space.n, a_space.n) * 0.1 - 0.05
         self.last = None
         self.lr = lr
         self.discount = discount
@@ -32,19 +29,3 @@ class QLearning(agent.Agent):
         if np.random.rand() < 0.001:
             return np.random.randint(self.v.shape[1])
         return np.argmax(self.v[obs])
-
-    def __str__(self):
-        return str(np.round(self.v, 2))
-
-def run(env = "FrozenLake-v0", **args):
-    import gym
-    env = gym.make(env)
-    agt = QLearning(
-        env.observation_space.n,
-        env.action_space.n,
-        **args
-    )
-    train.train(env, agt, 100000)
-
-if __name__ == "__main__":
-    run(**train.get_run_args())
