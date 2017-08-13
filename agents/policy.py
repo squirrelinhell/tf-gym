@@ -2,29 +2,49 @@
 import numpy as np
 import tensorflow as tf
 
-import agents
+from agents import Agent
 
-def dense(x, out_dim, name = "dense"):
-    with tf.name_scope(name):
-        w = tf.Variable(
-            tf.truncated_normal([int(x.shape[1]), out_dim], stddev=0.1,
-                dtype=tf.float32),
-            name = "w"
-        )
-        b = tf.Variable(
-            tf.constant(0.1, shape=[out_dim], dtype=tf.float32),
-            name = "b"
-        )
-        return tf.matmul(x, w) + b
+def tf_scope(f):
+    def f_with_scope(*args, **kwargs):
+        with tf.name_scope(f.__name__):
+            return f(*args, **kwargs)
+    return f_with_scope
 
+@tf_scope
+def linear(x, out_dim):
+    in_dim = np.prod([
+        1 if v is None else v
+        for v in x.shape.as_list()
+    ])
+    x = tf.reshape(x, [-1, in_dim])
+    w = tf.Variable(tf.truncated_normal(
+        stddev = 0.1,
+        shape = [in_dim, out_dim],
+        dtype = x.dtype
+    ))
+    return tf.matmul(x, w)
+
+@tf_scope
+def bias(x):
+    b = tf.Variable(tf.truncated_normal(
+        stddev = 0.1,
+        shape = x.shape,
+        dtype = x.dtype
+    ))
+    return x + b
+
+@tf_scope
 def gradient(x):
     vs = []
     gs = []
     pos = 0, 0
     for v in tf.trainable_variables():
         g = tf.gradients(x, v)[0]
-        gs.append(tf.reshape(g, [-1]))
-        pos = pos[1], pos[1] + tf.size(g)
+        if g is None:
+            gs.append(tf.zeros([tf.size(v)], v.dtype))
+        else:
+            gs.append(tf.reshape(g, [-1]))
+        pos = pos[1], pos[1] + tf.size(v)
         vs.append((pos, v))
 
     # Return a single concatenated vector and a function that
@@ -37,27 +57,43 @@ def gradient(x):
         ]
     )
 
-class PolicyAgent(agents.Agent):
+def running_normalize(lr = 0.0001):
+    if lr < 0.00000001:
+        return lambda x, **kwargs: x
+    params = [0, 1]
+    def update(i, value, avg):
+        if avg is not None:
+            value = np.mean(value, axis=avg)
+        params[i] = params[i] * (1.0 - lr) + value * lr
+        return params[i]
+    def process(value, avg = None):
+        value = np.asarray(value)
+        value -= update(0, value, avg)
+        stddev = np.sqrt(update(1, np.square(value), avg))
+        return value / np.maximum(0.0001, stddev)
+    return process
+
+class PolicyAgent(Agent):
     def __init__(self, o_space, a_space,
             discount = 0.9, horizon = 500, batch = 128,
-            lr = 0.02, eps = 0.0001, normalize = "meanstd",
-            endpenalty = -100, hiddenlayer = 8):
+            lr = 0.02, eps = 0.0001,
+            normalize_adv = 0.0, normalize_obs = 0.0,
+            end_penalty = -100, hidden_layer = 8):
         self.discount = discount
         self.horizon = horizon
         self.batch = batch
-        self.normalize = {
-            "off": lambda x: x,
-            "mean": lambda x: x - x.mean(),
-            "meanstd": lambda x: (lambda y: y - y.std())(x - x.mean()),
-        }[normalize]
-        self.endpenalty = endpenalty
+        self.normalize_adv = running_normalize(lr = normalize_adv)
+        self.normalize_obs = running_normalize(lr = normalize_obs)
+        self.end_penalty = end_penalty
 
         # Policy network
         self.obs = tf.placeholder(tf.float32, o_space.shape)
-        y = tf.reshape(self.obs, [1, -1])
-        y = dense(y, hiddenlayer)
+        y = self.obs
+        y = linear(y, hidden_layer)
+        y = bias(y)
         y = tf.nn.relu(y)
-        y = dense(y, a_space.n)
+        y = linear(y, a_space.n)
+        y = bias(y)
         self.action = tf.to_int32(tf.multinomial(y, 1))[0][0]
         y = tf.nn.softmax(y[0])
         self.elasticity, split_gradient = gradient(
@@ -77,12 +113,13 @@ class PolicyAgent(agents.Agent):
         self.history = []
 
     def step(self, obs, reward, done):
+        obs = self.normalize_obs(obs)
         if done:
-            reward = self.endpenalty
+            reward = self.end_penalty
 
         action, elasticity = self.sess.run(
             [self.action, self.elasticity],
-            feed_dict={self.obs: obs}
+            feed_dict = {self.obs: obs}
         )
 
         self.history.append((reward, elasticity))
@@ -104,14 +141,14 @@ class PolicyAgent(agents.Agent):
         if len(self.history) < self.horizon + self.batch:
             return
 
-        advans = [self._advantage(t) for t in range(self.batch)]
-        advans = self.normalize(np.array(advans))
+        advans = self.normalize_adv(
+            [self._advantage(t) for t in range(self.batch)],
+            avg=0
+        )
         elasts = [h[1] for h in self.history[0:self.batch]]
         self.history = self.history[self.batch:]
 
         self.sess.run(
             self.grad_ascend,
-            feed_dict = {
-                self.grad_in: np.dot(advans, elasts)
-            }
+            feed_dict = {self.grad_in: np.dot(advans, elasts)}
         )

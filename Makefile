@@ -11,13 +11,11 @@ qlearning: \
 	$R/agent\:qlearning_env\:FrozenLake-v0_4.png
 
 policy: \
-	$R/agent\:policy_env\:CartPole-v1_normalize\:off_16.png \
-	$R/agent\:policy_env\:CartPole-v1_normalize\:mean_16.png \
-	$R/agent\:policy_env\:CartPole-v1_normalize\:meanstd_16.png \
-	$R/agent\:policy_env\:CartPole-v1_batch\:100_lr\:0.02_16.png \
-	$R/agent\:policy_env\:CartPole-v1_batch\:10_lr\:0.02_16.png \
+	$R/agent\:policy_env\:CartPole-v1_normalize-adv\:0.5_16.png \
+	$R/agent\:policy_env\:CartPole-v1_normalize-obs\:0.00002_16.png \
+	$R/agent\:policy_env\:CartPole-v1_normalize-obs\:0.0001_16.png \
 	$R/agent\:policy_env\:CartPole-v1_batch\:10_lr\:0.002_16.png \
-	$R/agent\:policy_env\:CartPole-v1_batch\:1000_lr\:0.02_16.png \
+	$R/agent\:policy_env\:CartPole-v1_batch\:100_lr\:0.02_16.png \
 	$R/agent\:policy_env\:CartPole-v1_batch\:1000_lr\:0.2_16.png \
 
 # Global

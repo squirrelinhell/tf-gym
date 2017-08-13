@@ -1,9 +1,9 @@
 
 import numpy as np
 
-import agents
+from agents import Agent
 
-class QLearning(agents.Agent):
+class QLearning(Agent):
     def __init__(self, o_space, a_space, lr = 0.03, discount = 0.9):
         self.v = np.random.rand(o_space.n, a_space.n) * 0.1 - 0.05
         self.last = None

@@ -44,10 +44,10 @@ def train(env, agent, steps, on_progress = None):
     return history
 
 def _auto_train(env, agent, steps = 50000,
-        logdir = None, nvideos = None, **args):
+        logdir = None, n_videos = None, **args):
     logdir = _getenv("LOG_DIR", logdir)
-    nvideos = _getenv("N_VIDEOS", nvideos)
-    nvideos = 0 if nvideos is None else int(nvideos)
+    n_videos = _getenv("N_VIDEOS", n_videos)
+    n_videos = 0 if n_videos is None else int(n_videos)
 
     if not isinstance(env, gym.core.Env):
         env = gym.make(env)
@@ -57,7 +57,7 @@ def _auto_train(env, agent, steps = 50000,
     videos = []
     on_progress = lambda t: \
         videos.append(True) \
-        if (t+1) % max(10, ((steps+nvideos+1) // (nvideos+1))) == 0 \
+        if (t+1) % max(10, ((steps+n_videos+1) // (n_videos+1))) == 0 \
         else None
 
     if logdir is not None:
@@ -89,9 +89,16 @@ def _auto_build_agent(env, agent, **args):
 
     module = importlib.import_module("agents." + agent)
     for _, cls in module.__dict__.items():
-        if isinstance(cls, type) and issubclass(cls, agents.Agent):
+        if _is_strict_subclass(cls, agents.Agent):
             return cls(**args)
     raise ValueError("No subclasses of Agent found in " + agent)
+
+def _is_strict_subclass(a, b):
+    if not isinstance(a, type):
+        return False
+    if not issubclass(a, b):
+        return False
+    return a != b
 
 def _getenv(name, default = ""):
     if name in os.environ and len(os.environ[name]) >= 1:
@@ -104,6 +111,7 @@ def _parse_args(*args):
         if ":" not in a:
             continue
         a, val = a.split(":", 1)
+        a = a.replace("-","_")
         if val[0] in "0123456789-":
             if "." in val:
                 result[a] = float(val)
