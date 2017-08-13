@@ -40,14 +40,15 @@ def gradient(x):
 class PolicyAgent(agents.Agent):
     def __init__(self, o_space, a_space,
             discount = 0.9, horizon = 500, batch = 128,
-            lr = 0.02, eps = 0.0001, normalize = "mean",
+            lr = 0.02, eps = 0.0001, normalize = "meanstd",
             endpenalty = -100, hiddenlayer = 8):
         self.discount = discount
         self.horizon = horizon
         self.batch = batch
         self.normalize = {
             "off": lambda x: x,
-            "mean": lambda x: x - x.mean()
+            "mean": lambda x: x - x.mean(),
+            "meanstd": lambda x: (lambda y: y - y.std())(x - x.mean()),
         }[normalize]
         self.endpenalty = endpenalty
 
@@ -85,11 +86,11 @@ class PolicyAgent(agents.Agent):
         )
 
         self.history.append((reward, elasticity))
-        self.__learn()
+        self._learn()
 
         return action
 
-    def __advantage(self, t):
+    def _advantage(self, t):
         rs = self.history[t+1:t+1+self.horizon]
         assert len(rs) == self.horizon
 
@@ -99,11 +100,11 @@ class PolicyAgent(agents.Agent):
             sum_r += r
         return sum_r
 
-    def __learn(self):
+    def _learn(self):
         if len(self.history) < self.horizon + self.batch:
             return
 
-        advans = [self.__advantage(t) for t in range(self.batch)]
+        advans = [self._advantage(t) for t in range(self.batch)]
         advans = self.normalize(np.array(advans))
         elasts = [h[1] for h in self.history[0:self.batch]]
         self.history = self.history[self.batch:]

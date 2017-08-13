@@ -48,17 +48,15 @@ def _plot_name(path):
     path = os.path.basename(path)
     return path.replace("_", " ")
 
-def _batch_avg(data, batch):
-    n = len(data) // batch
-    data = data[0:batch*n]
-    data = data.reshape((n, batch) + data.shape[1:])
-    return np.mean(data, axis=1)
+def _running_mean(data, window):
+    sums = np.cumsum(data, 0)
+    return (sums[window:] - sums[:-window]) / window
 
 def _add_plot(ax, x, y, color):
     xy = np.vstack((x, y)).T
     ax.plot(xy[:,0], xy[:,1], color + ".", alpha=0.2, zorder=10)
     if len(xy) >= 20:
-        xy = _batch_avg(xy, max(5, len(xy) // 50))
+        xy = _running_mean(xy, max(5, len(xy) // 10))
     ax.plot(xy[:,0], xy[:,1], "w-", linewidth=4, zorder=11)
     ax.plot(xy[:,0], xy[:,1], color + "-", linewidth=2, zorder=12)
 
