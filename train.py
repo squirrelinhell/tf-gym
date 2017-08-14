@@ -13,46 +13,56 @@ import debug
 
 def train(env, agent, steps, on_progress = None):
     history = []
-    obs, reward, done = env.reset(), 0.0, False
-    ep_r, ep_steps = 0.0, 0
-    train_time, agent_time = time.time(), 0.0
+    obs, ep_r, ep_steps = env.reset(), 0.0, 0
+    timer = Timer()
 
     for t in range(steps):
         if on_progress is not None:
             on_progress(t)
 
-        step_time = time.time()
-        action = agent.step(obs, reward, done)
-        agent_time += time.time() - step_time
+        action = timer.call(agent.next_action, obs)
+
+        obs, reward, done, _ = env.step(action)
+        ep_r += reward
+        ep_steps += 1
+
+        timer.call(agent.take_reward, reward, episode_end = done)
 
         if done:
             history.append([t + 1, ep_r, ep_steps])
-            obs, reward, done = env.reset(), 0.0, False
-            ep_r, ep_steps = 0.0, 0
-        else:
-            obs, reward, done, _ = env.step(action)
-            ep_r += reward
-            ep_steps += 1
+            obs, ep_r, ep_steps = env.reset(), 0.0, 0
 
-    train_time = time.time() - train_time
+    timer.end()
     sys.stderr.write(
         "Finished in %.2fs: %.2f steps/s, %.1f%% agent time\n" %
-        (train_time, steps/train_time, 100.0*agent_time/train_time)
+        (timer.total, steps/timer.total, 100.0*timer.calls/timer.total)
     )
     sys.stderr.flush()
 
     return history
 
-def _auto_train(env, agent, steps = 50000,
+class Timer:
+    def __init__(self):
+        self.start = time.time()
+        self.calls = 0.0
+    def call(self, f, *args, **kwargs):
+        t0 = time.time()
+        ret = f(*args, **kwargs)
+        self.calls += time.time() - t0
+        return ret
+    def end(self):
+        self.total = time.time() - self.start
+
+def auto_train(env, agent, steps = 50000,
         logdir = None, n_videos = None, **args):
-    logdir = _getenv("LOG_DIR", logdir)
-    n_videos = _getenv("N_VIDEOS", n_videos)
+    logdir = get_env("LOG_DIR", logdir)
+    n_videos = get_env("N_VIDEOS", n_videos)
     n_videos = 0 if n_videos is None else int(n_videos)
 
     if not isinstance(env, gym.core.Env):
         env = gym.make(env)
 
-    agent = _auto_build_agent(env, agent, **args)
+    agent = auto_build_agent(env, agent, **args)
 
     videos = []
     on_progress = lambda t: \
@@ -79,7 +89,7 @@ def _auto_train(env, agent, steps = 50000,
             header = "    step  ep_reward   ep_steps"
         )
 
-def _auto_build_agent(env, agent, **args):
+def auto_build_agent(env, agent, **args):
     if isinstance(agent, agents.Agent):
         assert len(args) == 0
         return agent
@@ -89,23 +99,23 @@ def _auto_build_agent(env, agent, **args):
 
     module = importlib.import_module("agents." + agent)
     for _, cls in module.__dict__.items():
-        if _is_strict_subclass(cls, agents.Agent):
+        if is_strict_subclass(cls, agents.Agent):
             return cls(**args)
     raise ValueError("No subclasses of Agent found in " + agent)
 
-def _is_strict_subclass(a, b):
+def is_strict_subclass(a, b):
     if not isinstance(a, type):
         return False
     if not issubclass(a, b):
         return False
     return a != b
 
-def _getenv(name, default = ""):
+def get_env(name, default = ""):
     if name in os.environ and len(os.environ[name]) >= 1:
         return os.environ[name]
     return default
 
-def _parse_args(*args):
+def parse_args(*args):
     result = dict()
     for a in ("_".join(args)).split("_"):
         if ":" not in a:
@@ -123,7 +133,7 @@ def _parse_args(*args):
 
 def run():
     if len(sys.argv) >= 2:
-        _auto_train(**_parse_args(*sys.argv[1:]))
+        auto_train(**parse_args(*sys.argv[1:]))
     else:
         sys.stderr.write("\nUsage:\n\n")
         sys.stderr.write("\t" + "train.py env:<name> agent:<name>\n")

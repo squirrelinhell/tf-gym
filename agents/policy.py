@@ -110,45 +110,52 @@ class PolicyAgent(Agent):
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
-        self.history = []
+        self.elasts = []
+        self.rewards = []
 
-    def step(self, obs, reward, done):
+    def next_action(self, obs):
         obs = self.normalize_obs(obs)
-        if done:
-            reward = self.end_penalty
 
         action, elasticity = self.sess.run(
             [self.action, self.elasticity],
             feed_dict = {self.obs: obs}
         )
 
-        self.history.append((reward, elasticity))
-        self._learn()
-
+        self.elasts.append(elasticity)
         return action
 
+    def take_reward(self, reward, episode_end):
+        if episode_end:
+            reward = self.end_penalty
+
+        self.rewards.append(reward)
+        assert len(self.rewards) == len(self.elasts)
+
+        self._learn()
+
     def _advantage(self, t):
-        rs = self.history[t+1:t+1+self.horizon]
+        rs = self.rewards[t:t+self.horizon]
         assert len(rs) == self.horizon
 
         sum_r = 0.0
-        for r, _ in reversed(rs):
+        for r in reversed(rs):
             sum_r *= self.discount
             sum_r += r
         return sum_r
 
     def _learn(self):
-        if len(self.history) < self.horizon + self.batch:
+        if len(self.rewards) < self.horizon + self.batch:
             return
 
         advans = self.normalize_adv(
             [self._advantage(t) for t in range(self.batch)],
             avg=0
         )
-        elasts = [h[1] for h in self.history[0:self.batch]]
-        self.history = self.history[self.batch:]
+        grad = np.dot(advans, self.elasts[0:self.batch])
+        self.elasts = self.elasts[self.batch:]
+        self.rewards = self.rewards[self.batch:]
 
         self.sess.run(
             self.grad_ascend,
-            feed_dict = {self.grad_in: np.dot(advans, elasts)}
+            feed_dict = {self.grad_in: grad}
         )

@@ -10,22 +10,23 @@ class QLearning(Agent):
         self.lr = lr
         self.discount = discount
 
-    def step(self, obs, reward, done):
-        if done:
-            reward = 1.0 if reward > 0.0 else -1.0
-        else:
-            reward = 0.0
-
+    def next_action(self, obs):
         if self.last is not None:
             self.v[self.last] *= 1.0 - self.lr
             self.v[self.last] += self.lr * (
-                reward + self.discount * np.max(self.v[obs])
+                self.reward + self.discount * np.max(self.v[obs])
             )
 
-        self.last = obs, self.policy(obs)
-        return self.last[1]
-
-    def policy(self, obs):
         if np.random.rand() < 0.001:
-            return np.random.randint(self.v.shape[1])
-        return np.argmax(self.v[obs])
+            action = np.random.randint(self.v.shape[1])
+        else:
+            action = np.argmax(self.v[obs])
+
+        self.last = obs, action
+        return action
+
+    def take_reward(self, reward, episode_end):
+        if episode_end:
+            self.reward = 1.0 if reward > 0.0 else -1.0
+        else:
+            self.reward = 0.0
