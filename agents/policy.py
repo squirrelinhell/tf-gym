@@ -34,28 +34,69 @@ def bias(x):
     return x + b
 
 @tf_scope
-def gradient(x):
-    vs = []
-    gs = []
-    pos = 0, 0
-    for v in tf.trainable_variables():
-        g = tf.gradients(x, v)[0]
+def gradient(var, params):
+    ret = []
+    for p in params:
+        g = tf.gradients(var, p)[0]
         if g is None:
-            gs.append(tf.zeros([tf.size(v)], v.dtype))
+            ret.append(tf.zeros([tf.size(p)], p.dtype))
         else:
-            gs.append(tf.reshape(g, [-1]))
-        pos = pos[1], pos[1] + tf.size(v)
-        vs.append((pos, v))
+            ret.append(tf.reshape(g, [-1]))
+    return tf.concat(ret, axis=0)
 
-    # Return a single concatenated vector and a function that
-    # can split such vectors into a (grad, variable) list
-    return (
-        tf.concat(gs, axis=0),
-        lambda g: [
-            (tf.reshape(g[p1:p2], v.shape), v)
-            for (p1, p2), v in vs
-        ]
-    )
+@tf_scope
+def split_gradient(grad, params):
+    ret = []
+    start, end = 0, 0
+    for p in params:
+        start, end = end, end + tf.size(p)
+        ret.append((tf.reshape(grad[start:end], p.shape), p))
+    return ret
+
+class Network:
+    def __init__(self,
+            o_space, a_space,
+            hidden_layer = 8,
+            lr = 0.02, eps = 0.0001,
+            value_grad = 0.0):
+        obs = tf.placeholder(tf.float32, o_space.shape)
+
+        # Policy network
+        layer = tf.nn.relu(bias(linear(obs, hidden_layer)))
+        policy = bias(linear(layer, a_space.n))
+        action = tf.to_int32(tf.multinomial(policy, 1))[0][0]
+        policy = tf.nn.softmax(policy[0])
+        pred_value = bias(linear(layer, 1))[0][0]
+
+        # Compute gradient
+        params = tf.trainable_variables()
+        grad = gradient(
+            tf.log(policy[action]) + pred_value * value_grad,
+            params
+        )
+
+        # Apply gradient
+        grad_in = tf.placeholder(grad.dtype, grad.shape)
+        grad_ascend = tf.train.AdamOptimizer(
+            learning_rate = lr,
+            epsilon = eps
+        ).apply_gradients(split_gradient(-grad_in, params))
+
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+
+        def process_step(feed_obs):
+            a, v, g = sess.run(
+                [action, pred_value, grad],
+                feed_dict = {obs: feed_obs}
+            )
+            return a, v if value_grad > 0.000001 else 0.0, g
+
+        self.process_step = process_step
+        self.grad_ascend = lambda feed_grad: sess.run(
+            grad_ascend,
+            feed_dict = {grad_in: feed_grad}
+        )
 
 def running_normalize(lr = 0.0001):
     if lr < 0.00000001:
@@ -74,88 +115,51 @@ def running_normalize(lr = 0.0001):
     return process
 
 class PolicyAgent(Agent):
-    def __init__(self, o_space, a_space,
-            discount = 0.9, horizon = 500, batch = 128,
-            lr = 0.02, eps = 0.0001,
+    def __init__(self,
+            discount = 0.9, horizon = 500,
+            batch = 128, end_penalty = -100,
             normalize_adv = 0.0, normalize_obs = 0.0,
-            end_penalty = -100, hidden_layer = 8):
-        self.discount = discount
-        self.horizon = horizon
-        self.batch = batch
-        self.normalize_adv = running_normalize(lr = normalize_adv)
-        self.normalize_obs = running_normalize(lr = normalize_obs)
-        self.end_penalty = end_penalty
+            **kwargs):
+        normalize_adv = running_normalize(lr = normalize_adv)
+        normalize_obs = running_normalize(lr = normalize_obs)
 
-        # Policy network
-        self.obs = tf.placeholder(tf.float32, o_space.shape)
-        y = self.obs
-        y = linear(y, hidden_layer)
-        y = bias(y)
-        y = tf.nn.relu(y)
-        y = linear(y, a_space.n)
-        y = bias(y)
-        self.action = tf.to_int32(tf.multinomial(y, 1))[0][0]
-        y = tf.nn.softmax(y[0])
-        self.elasticity, split_gradient = gradient(
-            tf.log(y[self.action])
-        )
+        net = Network(**kwargs)
+        history = []
 
-        # Apply gradients
-        self.grad_in = tf.placeholder(tf.float32, self.elasticity.shape)
-        self.grad_ascend = tf.train.AdamOptimizer(
-            learning_rate = lr,
-            epsilon = eps
-        ).apply_gradients(split_gradient(-self.grad_in))
+        def advantage(time):
+            sum_r = 0.0
+            for t1 in reversed(range(time, time + horizon)):
+                sum_r *= discount
+                sum_r += history[t1]["reward"]
+            return sum_r - history[time]["pred_value"]
 
-        self.sess = tf.Session()
-        self.sess.run(tf.global_variables_initializer())
+        def learn():
+            nonlocal history
+            if len(history) < horizon + batch:
+                return
 
-        self.elasts = []
-        self.rewards = []
+            advantages = [advantage(t) for t in range(batch)]
+            grads = [h["grad"] for h in history[0:batch]]
+            history = history[batch:]
 
-    def next_action(self, obs):
-        obs = self.normalize_obs(obs)
+            net.grad_ascend(np.dot(advantages, grads))
 
-        action, elasticity = self.sess.run(
-            [self.action, self.elasticity],
-            feed_dict = {self.obs: obs}
-        )
+        def next_action(obs):
+            obs = normalize_obs(obs)
+            action, pred_value, grad = net.process_step(obs)
 
-        self.elasts.append(elasticity)
-        return action
+            history.append({
+                "pred_value": pred_value,
+                "grad": grad,
+            })
+            return action
 
-    def take_reward(self, reward, episode_end):
-        if episode_end:
-            reward = self.end_penalty
+        def take_reward(reward, episode_end):
+            if episode_end:
+                reward = end_penalty
 
-        self.rewards.append(reward)
-        assert len(self.rewards) == len(self.elasts)
+            history[-1]["reward"] = reward
+            learn()
 
-        self._learn()
-
-    def _advantage(self, t):
-        rs = self.rewards[t:t+self.horizon]
-        assert len(rs) == self.horizon
-
-        sum_r = 0.0
-        for r in reversed(rs):
-            sum_r *= self.discount
-            sum_r += r
-        return sum_r
-
-    def _learn(self):
-        if len(self.rewards) < self.horizon + self.batch:
-            return
-
-        advans = self.normalize_adv(
-            [self._advantage(t) for t in range(self.batch)],
-            avg=0
-        )
-        grad = np.dot(advans, self.elasts[0:self.batch])
-        self.elasts = self.elasts[self.batch:]
-        self.rewards = self.rewards[self.batch:]
-
-        self.sess.run(
-            self.grad_ascend,
-            feed_dict = {self.grad_in: grad}
-        )
+        self.next_action = next_action
+        self.take_reward = take_reward
