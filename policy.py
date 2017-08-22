@@ -5,13 +5,6 @@ import tensorflow as tf
 
 from lib import debug, train, wrappers
 
-def tf_scope(f):
-    def f_with_scope(*args, **kwargs):
-        with tf.name_scope(f.__name__):
-            return f(*args, **kwargs)
-    return f_with_scope
-
-@tf_scope
 def linear(x, out_dim):
     in_dim = np.prod([
         1 if v is None else v
@@ -25,7 +18,6 @@ def linear(x, out_dim):
     ))
     return tf.matmul(x, w)
 
-@tf_scope
 def bias(x):
     b = tf.Variable(tf.truncated_normal(
         stddev = 0.1,
@@ -34,7 +26,6 @@ def bias(x):
     ))
     return x + b
 
-@tf_scope
 def gradient(var, params):
     ret = []
     for p in params:
@@ -45,7 +36,6 @@ def gradient(var, params):
             ret.append(tf.reshape(g, [-1]))
     return tf.concat(ret, axis=0)
 
-@tf_scope
 def split_gradient(grad, params):
     ret = []
     start, end = 0, 0
