@@ -13,13 +13,9 @@ qlearning: \
 
 policy: \
 	$R/policy.png \
-	$R/policy,lr\:0.1.png \
 	$R/policy,batch\:512,lr\:0.03.png \
 	$R/policy,normalize_obs\:0.00003.png \
 	$R/policy,normalize_adv\:0.5.png \
-	$R/policy,value_grad\:0.1.png \
-	$R/policy,value_grad\:0.01.png \
-	$R/policy,value_grad\:0.01,normalize_adv\:0.5.png \
 
 # Global
 

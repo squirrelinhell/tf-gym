@@ -49,7 +49,7 @@ class Log(gym.Wrapper):
 
         def do_close():
             self.env._close()
-            if len(log_dir) >= 1:
+            if len(log_dir) >= 1 and len(history) >= 1:
                 np.savetxt(
                     log_dir + "/results.csv",
                     history,

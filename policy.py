@@ -55,11 +55,8 @@ def split_gradient(grad, params):
     return ret
 
 class Network:
-    def __init__(self,
-            o_space, n_actions,
-            hidden_layer = 8,
-            lr = 0.02, eps = 0.0001,
-            value_grad = 0.0):
+    def __init__(self, o_space, n_actions,
+            hidden_layer=8, lr=0.02, eps=0.0001):
         obs = tf.placeholder(tf.float32, o_space)
 
         # Policy network
@@ -67,17 +64,13 @@ class Network:
         policy = bias(linear(layer, n_actions))
         action = tf.to_int32(tf.multinomial(policy, 1))[0][0]
         policy = tf.nn.softmax(policy[0])
-        pred_value = bias(linear(layer, 1))[0][0]
 
         # Compute gradient
         params = tf.trainable_variables()
-        grad = gradient(
-            tf.log(policy[action]) + pred_value * value_grad,
-            params
-        )
+        elasticity = gradient(tf.log(policy[action]), params)
 
         # Apply gradient
-        grad_in = tf.placeholder(grad.dtype, grad.shape)
+        grad_in = tf.placeholder(elasticity.dtype, elasticity.shape)
         grad_ascend = tf.train.AdamOptimizer(
             learning_rate = lr,
             epsilon = eps
@@ -86,14 +79,11 @@ class Network:
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
 
-        def process_step(feed_obs):
-            a, v, g = sess.run(
-                [action, pred_value, grad],
-                feed_dict = {obs: feed_obs}
-            )
-            return a, v if value_grad > 0.000001 else 0.0, g
+        self.process_step = lambda feed_obs: sess.run(
+            [action, elasticity],
+            feed_dict = {obs: feed_obs}
+        )
 
-        self.process_step = process_step
         self.grad_ascend = lambda feed_grad: sess.run(
             grad_ascend,
             feed_dict = {grad_in: feed_grad}
@@ -117,49 +107,49 @@ def running_normalize(lr = 0.0001):
 
 class PolicyAgent(train.Agent):
     def __init__(self,
-            discount = 0.9, horizon = 500,
-            batch = 128, end_penalty = -100,
-            normalize_adv = 0.0, normalize_obs = 0.0,
+            discount=0.9, horizon=500,
+            batch=128, end_penalty=-100,
+            normalize_adv=0.0, normalize_obs=0.0,
             **kwargs):
-        normalize_adv = running_normalize(lr = normalize_adv)
-        normalize_obs = running_normalize(lr = normalize_obs)
+        normalize_adv = running_normalize(lr=normalize_adv)
+        normalize_obs = running_normalize(lr=normalize_obs)
 
         net = Network(**kwargs)
-        history = []
+        rewards = []
+        elasts = []
 
         def advantage(time):
             sum_r = 0.0
             for t1 in reversed(range(time, time + horizon)):
                 sum_r *= discount
-                sum_r += history[t1]["reward"]
-            return sum_r - history[time]["pred_value"]
+                sum_r += rewards[t1]
+            return sum_r
 
         def learn():
-            nonlocal history
-            if len(history) < horizon + batch:
+            nonlocal rewards, elasts
+            if len(rewards) < batch + horizon:
                 return
 
             advantages = [advantage(t) for t in range(batch)]
-            grads = [h["grad"] for h in history[0:batch]]
-            history = history[batch:]
+            net.grad_ascend(np.dot(advantages, elasts[0:batch]))
 
-            net.grad_ascend(np.dot(advantages, grads))
+            rewards = rewards[batch:]
+            elasts = elasts[batch:]
 
         def next_action(obs):
             obs = normalize_obs(obs)
-            action, pred_value, grad = net.process_step(obs)
+            action, elasticity = net.process_step(obs)
 
-            history.append({
-                "pred_value": pred_value,
-                "grad": grad,
-            })
+            elasts.append(elasticity)
             return action
 
         def take_reward(reward, episode_end):
             if episode_end:
                 reward = end_penalty
 
-            history[-1]["reward"] = reward
+            rewards.append(reward)
+            assert len(rewards) == len(elasts)
+
             learn()
 
         self.next_action = next_action
