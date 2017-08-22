@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 
 import numpy as np
 import tensorflow as tf
 
-from agents import Agent
+from lib import debug, train, wrappers
 
 def tf_scope(f):
     def f_with_scope(*args, **kwargs):
@@ -55,15 +56,15 @@ def split_gradient(grad, params):
 
 class Network:
     def __init__(self,
-            o_space, a_space,
+            o_space, n_actions,
             hidden_layer = 8,
             lr = 0.02, eps = 0.0001,
             value_grad = 0.0):
-        obs = tf.placeholder(tf.float32, o_space.shape)
+        obs = tf.placeholder(tf.float32, o_space)
 
         # Policy network
         layer = tf.nn.relu(bias(linear(obs, hidden_layer)))
-        policy = bias(linear(layer, a_space.n))
+        policy = bias(linear(layer, n_actions))
         action = tf.to_int32(tf.multinomial(policy, 1))[0][0]
         policy = tf.nn.softmax(policy[0])
         pred_value = bias(linear(layer, 1))[0][0]
@@ -114,7 +115,7 @@ def running_normalize(lr = 0.0001):
         return value / np.maximum(0.0001, stddev)
     return process
 
-class PolicyAgent(Agent):
+class PolicyAgent(train.Agent):
     def __init__(self,
             discount = 0.9, horizon = 500,
             batch = 128, end_penalty = -100,
@@ -163,3 +164,17 @@ class PolicyAgent(Agent):
 
         self.next_action = next_action
         self.take_reward = take_reward
+
+def run(env = "CartPole-v1", *args, **kwargs):
+    import gym
+    env = wrappers.Log(gym.make(env))
+    agent = PolicyAgent(
+        o_space=env.observation_space.shape,
+        n_actions=env.action_space.n,
+        *args, **kwargs
+    )
+    train.thread(env, agent, 50000)
+
+if __name__ == "__main__":
+    import sys
+    run(**train.parse_args(*sys.argv[1:]))

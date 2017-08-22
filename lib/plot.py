@@ -5,8 +5,6 @@ import sys
 import time
 import numpy as np
 
-import debug
-
 def plot_results(*result_files):
     plot_file = _getenv("PLOT_FILE")
 
@@ -46,7 +44,7 @@ def _plot_name(path):
     if path.endswith("/results.csv"):
         path = path[:-12]
     path = os.path.basename(path)
-    return path.replace("_", " ")
+    return path.replace(",", " ")
 
 def _running_mean(data, window):
     sums = np.cumsum(data, 0)
