@@ -7,9 +7,9 @@ import tensorflow.contrib.distributions as tf_dist
 import gym
 import gym.spaces
 
-import lib.debug
 import lib.train
 import lib.wrappers
+import lib.envs
 import lib.tf
 
 class PolicyNetwork:

@@ -4,7 +4,6 @@ import numpy as np
 
 import gym
 
-import lib.debug
 import lib.train
 import lib.wrappers
 
