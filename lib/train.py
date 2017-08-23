@@ -37,6 +37,7 @@ def thread(env, agent, steps=50000, print_stats=True):
             obs = env.reset()
 
     timer.end()
+    env.close()
 
     if print_stats:
         sys.stderr.write(

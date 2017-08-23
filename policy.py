@@ -2,69 +2,50 @@
 
 import numpy as np
 import tensorflow as tf
+import tensorflow.contrib.distributions as tf_dist
 
-from lib import debug, train, wrappers
+import gym
+import gym.spaces
 
-def linear(x, out_dim):
-    in_dim = np.prod([
-        1 if v is None else v
-        for v in x.shape.as_list()
-    ])
-    x = tf.reshape(x, [-1, in_dim])
-    w = tf.Variable(tf.truncated_normal(
-        stddev = 0.1,
-        shape = [in_dim, out_dim],
-        dtype = x.dtype
-    ))
-    return tf.matmul(x, w)
+import lib.debug
+import lib.train
+import lib.wrappers
+import lib.tf
 
-def bias(x):
-    b = tf.Variable(tf.truncated_normal(
-        stddev = 0.1,
-        shape = x.shape,
-        dtype = x.dtype
-    ))
-    return x + b
-
-def gradient(var, params):
-    ret = []
-    for p in params:
-        g = tf.gradients(var, p)[0]
-        if g is None:
-            ret.append(tf.zeros([tf.size(p)], p.dtype))
-        else:
-            ret.append(tf.reshape(g, [-1]))
-    return tf.concat(ret, axis=0)
-
-def split_gradient(grad, params):
-    ret = []
-    start, end = 0, 0
-    for p in params:
-        start, end = end, end + tf.size(p)
-        ret.append((tf.reshape(grad[start:end], p.shape), p))
-    return ret
-
-class Network:
-    def __init__(self, o_space, n_actions,
+class PolicyNetwork:
+    def __init__(self, o_space, a_space,
             hidden_layer=8, lr=0.02, eps=0.0001):
-        obs = tf.placeholder(tf.float32, o_space)
+        obs = tf.placeholder(tf.float32, o_space.shape)
 
-        # Policy network
-        layer = tf.nn.relu(bias(linear(obs, hidden_layer)))
-        policy = bias(linear(layer, n_actions))
-        action = tf.to_int32(tf.multinomial(policy, 1))[0][0]
-        policy = tf.nn.softmax(policy[0])
+        # Build graph
+        layer = tf.reshape(obs, [1, -1])
+        layer = lib.tf.affine(layer, hidden_layer)
+        layer = tf.nn.relu(layer)
+
+        if isinstance(a_space, gym.spaces.Discrete):
+            logdist = lib.tf.affine(layer, a_space.n)
+            action = tf.to_int32(tf.multinomial(logdist, 1))[0][0]
+            log_prob = tf.log(tf.nn.softmax(logdist[0])[action])
+
+        elif isinstance(a_space, gym.spaces.Box):
+            num_params = 2 * np.prod(a_space.shape)
+            params = lib.tf.affine(layer, num_params)
+            params = tf.reshape(params, (2,) + a_space.shape)
+            gauss = tf_dist.Normal(params[0], params[1])
+            action = tf.stop_gradient(gauss.sample())
+            log_prob = gauss.log_prob(action)
+
+        else:
+            raise ValueError("Unsupported action space")
 
         # Compute gradient
         params = tf.trainable_variables()
-        elasticity = gradient(tf.log(policy[action]), params)
-
-        # Apply gradient
+        elasticity = lib.tf.gradient(log_prob, params)
         grad_in = tf.placeholder(elasticity.dtype, elasticity.shape)
         grad_ascend = tf.train.AdamOptimizer(
             learning_rate = lr,
             epsilon = eps
-        ).apply_gradients(split_gradient(-grad_in, params))
+        ).apply_gradients(lib.tf.split_gradient(-grad_in, params))
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
@@ -95,7 +76,7 @@ def running_normalize(lr = 0.0001):
         return value / np.maximum(0.0001, stddev)
     return process
 
-class PolicyAgent(train.Agent):
+class PolicyAgent(lib.train.Agent):
     def __init__(self,
             discount=0.9, horizon=500,
             batch=128, end_penalty=-100,
@@ -104,7 +85,7 @@ class PolicyAgent(train.Agent):
         normalize_adv = running_normalize(lr=normalize_adv)
         normalize_obs = running_normalize(lr=normalize_obs)
 
-        net = Network(**kwargs)
+        net = PolicyNetwork(**kwargs)
         rewards = []
         elasts = []
 
@@ -145,16 +126,15 @@ class PolicyAgent(train.Agent):
         self.next_action = next_action
         self.take_reward = take_reward
 
-def run(env = "CartPole-v1", *args, **kwargs):
-    import gym
-    env = wrappers.Log(gym.make(env))
+def run(env="CartPole-v1", steps=50000, *args, **kwargs):
+    env = lib.wrappers.Log(gym.make(env))
     agent = PolicyAgent(
-        o_space=env.observation_space.shape,
-        n_actions=env.action_space.n,
+        o_space=env.observation_space,
+        a_space=env.action_space,
         *args, **kwargs
     )
-    train.thread(env, agent, 50000)
+    lib.train.thread(env, agent, steps)
 
 if __name__ == "__main__":
     import sys
-    run(**train.parse_args(*sys.argv[1:]))
+    run(**lib.train.parse_args(*sys.argv[1:]))

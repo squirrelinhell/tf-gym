@@ -14,7 +14,6 @@ def plot_results(*result_files):
     import matplotlib.pyplot as plt
     import matplotlib.patches
     fig, [ax1, ax2] = plt.subplots(nrows=2, sharex=True)
-    fig.tight_layout()
     ax1.set_ylabel("reward/episode")
     ax2.set_ylabel("steps/episode")
     ax2.set_xlabel("step")
@@ -37,7 +36,7 @@ def plot_results(*result_files):
     if plot_file is None:
         plt.show()
     else:
-        fig.set_size_inches(8, 6)
+        fig.set_size_inches(10, 8)
         fig.savefig(plot_file, dpi=100)
 
 def _plot_name(path):

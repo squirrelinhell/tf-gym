@@ -30,7 +30,8 @@ $R/%.png: \
 		$R/run/%,run1/results.csv \
 		$R/run/%,run2/results.csv \
 		$R/run/%,run3/results.csv \
-		$R/run/%,run4/results.csv
+		$R/run/%,run4/results.csv \
+		$R/run/%,run5/results.csv
 	@echo ./lib/plot.py '->' $@
 	@PLOT_FILE=$@ ./lib/plot.py $^
 

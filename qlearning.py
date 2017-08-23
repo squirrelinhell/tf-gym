@@ -2,9 +2,13 @@
 
 import numpy as np
 
-from lib import debug, train, wrappers
+import gym
 
-class QLearningAgent(train.Agent):
+import lib.debug
+import lib.train
+import lib.wrappers
+
+class QLearningAgent(lib.train.Agent):
     def __init__(self, o_space, a_space, lr = 0.03, discount = 0.9):
         self.v = np.random.rand(o_space, a_space) * 0.1 - 0.05
         self.last = None
@@ -32,16 +36,15 @@ class QLearningAgent(train.Agent):
         else:
             self.reward = 0.0
 
-def run(env = "FrozenLake-v0", *args, **kwargs):
-    import gym
-    env = wrappers.Log(gym.make(env))
+def run(env="FrozenLake-v0", *args, **kwargs):
+    env = lib.wrappers.Log(gym.make(env))
     agent = QLearningAgent(
         env.observation_space.n,
         env.action_space.n,
         *args, **kwargs
     )
-    train.thread(env, agent, 25000)
+    lib.train.thread(env, agent, 25000)
 
 if __name__ == "__main__":
     import sys
-    run(**train.parse_args(*sys.argv[1:]))
+    run(**lib.train.parse_args(*sys.argv[1:]))
