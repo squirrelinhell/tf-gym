@@ -122,8 +122,7 @@ class PolicyAgent(lib.train.Agent):
         self.next_action = next_action
         self.take_reward = take_reward
 
-def run(env="CartPole-v1",
-        steps=50000, end_reward=None,
+def run(env="CartPole-v1", steps=50000, end_reward=None,
         *args, **kwargs):
     env = gym.make(env)
     env = lib.wrappers.Log(env)

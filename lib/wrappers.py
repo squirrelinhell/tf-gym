@@ -60,7 +60,7 @@ class Log(gym.Wrapper):
             ep_steps += 1
 
             if done:
-                history.append([t + 1, ep_r, ep_steps])
+                history.append([t, ep_r, ep_steps])
                 ep_r, ep_steps = 0.0, 0
 
             return obs, reward, done, info
@@ -69,7 +69,7 @@ class Log(gym.Wrapper):
             self.env._close()
             if len(log_dir) >= 1 and len(history) >= 1:
                 np.savetxt(
-                    log_dir + "/results.csv",
+                    log_dir + "/episodes.csv",
                     history,
                     fmt = "%10d %10.2f %10d",
                     header = "    step  ep_reward   ep_steps"

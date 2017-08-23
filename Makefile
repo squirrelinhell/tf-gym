@@ -38,3 +38,4 @@ $R/run/%/results.csv:
 	@echo ./$(firstword $(subst $(COMMA), ,$*)).py '->' $@
 	@LOG_DIR=$R/run/$* ./$(firstword $(subst $(COMMA), ,$*)).py \
 		$(subst $(firstword $(subst $(COMMA), ,$*))$(COMMA),,$*)
+	@mv $(dir $@)/episodes.csv $@
