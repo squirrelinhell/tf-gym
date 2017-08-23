@@ -7,10 +7,39 @@ import tensorflow.contrib.distributions as tf_dist
 import gym
 import gym.spaces
 
-import lib.train
-import lib.wrappers
-import lib.envs
-import lib.tf
+import utils
+
+def affine(x, out_dim):
+    assert len(x.shape.as_list()) == 2
+    w = tf.Variable(tf.truncated_normal(
+        stddev = 0.1,
+        shape = [int(x.shape[1]), out_dim],
+        dtype = x.dtype
+    ))
+    b = tf.Variable(tf.truncated_normal(
+        stddev = 0.1,
+        shape = [out_dim],
+        dtype = x.dtype
+    ))
+    return tf.matmul(x, w) + b
+
+def gradient(var, params):
+    ret = []
+    for p in params:
+        g = tf.gradients(var, p)[0]
+        if g is None:
+            ret.append(tf.zeros([tf.size(p)], p.dtype))
+        else:
+            ret.append(tf.reshape(g, [-1]))
+    return tf.concat(ret, axis=0)
+
+def split_gradient(flat, parts):
+    ret = []
+    start, end = 0, 0
+    for p in parts:
+        start, end = end, end + tf.size(p)
+        ret.append((tf.reshape(flat[start:end], p.shape), p))
+    return ret
 
 class PolicyNetwork:
     def __init__(self, o_space, a_space, lr=0.02, eps=0.0001):
@@ -18,18 +47,18 @@ class PolicyNetwork:
 
         # Build graph
         layer = tf.reshape(obs, [1, -1])
-        layer = lib.tf.affine(layer, 2 * np.prod(o_space))
+        layer = affine(layer, 2 * np.prod(o_space))
         layer = tf.nn.relu(layer)
 
         if isinstance(a_space, int):
             # Discrete action space
-            logdist = lib.tf.affine(layer, a_space)
+            logdist = affine(layer, a_space)
             action = tf.to_int32(tf.multinomial(logdist, 1))[0][0]
             log_prob = tf.log(tf.nn.softmax(logdist[0])[action])
         else:
             # Continuous action space
             num_params = 2 * np.prod(a_space)
-            params = lib.tf.affine(layer, num_params)
+            params = affine(layer, num_params)
             params = tf.reshape(params, (2,) + a_space)
             gauss = tf_dist.Normal(params[0], params[1])
             action = tf.stop_gradient(gauss.sample())
@@ -37,12 +66,12 @@ class PolicyNetwork:
 
         # Compute gradient
         params = tf.trainable_variables()
-        elasticity = lib.tf.gradient(log_prob, params)
+        elasticity = gradient(log_prob, params)
         grad_in = tf.placeholder(elasticity.dtype, elasticity.shape)
         grad_ascend = tf.train.AdamOptimizer(
             learning_rate = lr,
             epsilon = eps
-        ).apply_gradients(lib.tf.split_gradient(-grad_in, params))
+        ).apply_gradients(split_gradient(-grad_in, params))
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
@@ -73,7 +102,7 @@ def running_normalize(lr = 0.0001):
         return value / np.maximum(0.0001, stddev)
     return process
 
-class PolicyAgent(lib.train.Agent):
+class PolicyAgent(utils.train.Agent):
     def __init__(self,
             horizon=50, batch=128,
             normalize_adv=0.0, normalize_obs=0.0,
@@ -123,14 +152,14 @@ class PolicyAgent(lib.train.Agent):
 def run(env="CartPole-v1", steps=50000, end_reward=None,
         **kwargs):
     env = gym.make(env)
-    env = lib.wrappers.Log(env)
-    env = lib.wrappers.Endless(env, end_reward)
+    env = utils.wrappers.Log(env)
+    env = utils.wrappers.Endless(env, end_reward)
 
     a_space = env.action_space
     if isinstance(a_space, gym.spaces.Discrete):
         a_space = a_space.n
     elif isinstance(a_space, gym.spaces.Box):
-        env = lib.wrappers.WrapActions(env)
+        env = utils.wrappers.WrapActions(env)
         a_space = a_space.shape
     else:
         raise ValueError("Unsupported action space")
@@ -141,8 +170,8 @@ def run(env="CartPole-v1", steps=50000, end_reward=None,
         **kwargs
     )
 
-    lib.train.thread(env, agent, steps)
+    utils.train.thread(env, agent, steps)
 
 if __name__ == "__main__":
     import sys
-    run(**lib.train.parse_args(*sys.argv[1:]))
+    run(**utils.train.parse_args(*sys.argv[1:]))

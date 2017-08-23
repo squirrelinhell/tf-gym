@@ -4,10 +4,9 @@ import numpy as np
 
 import gym
 
-import lib.train
-import lib.wrappers
+import utils
 
-class QLearningAgent(lib.train.Agent):
+class QLearningAgent(utils.train.Agent):
     def __init__(self, o_space, a_space, lr = 0.03, discount = 0.9):
         self.v = np.random.rand(o_space, a_space) * 0.1 - 0.05
         self.last = None
@@ -36,14 +35,14 @@ class QLearningAgent(lib.train.Agent):
             self.reward = 0.0
 
 def run(env="FrozenLake-v0", *args, **kwargs):
-    env = lib.wrappers.Log(gym.make(env))
+    env = utils.wrappers.Log(gym.make(env))
     agent = QLearningAgent(
         env.observation_space.n,
         env.action_space.n,
         *args, **kwargs
     )
-    lib.train.thread(env, agent, 25000)
+    utils.train.thread(env, agent, 25000)
 
 if __name__ == "__main__":
     import sys
-    run(**lib.train.parse_args(*sys.argv[1:]))
+    run(**utils.train.parse_args(*sys.argv[1:]))
