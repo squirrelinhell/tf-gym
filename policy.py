@@ -14,28 +14,26 @@ import lib.tf
 
 class PolicyNetwork:
     def __init__(self, o_space, a_space, lr=0.02, eps=0.0001):
-        obs = tf.placeholder(tf.float32, o_space.shape)
+        obs = tf.placeholder(tf.float32, o_space)
 
         # Build graph
         layer = tf.reshape(obs, [1, -1])
-        layer = lib.tf.affine(layer, 2 * np.prod(o_space.shape))
+        layer = lib.tf.affine(layer, 2 * np.prod(o_space))
         layer = tf.nn.relu(layer)
 
-        if isinstance(a_space, gym.spaces.Discrete):
-            logdist = lib.tf.affine(layer, a_space.n)
+        if isinstance(a_space, int):
+            # Discrete action space
+            logdist = lib.tf.affine(layer, a_space)
             action = tf.to_int32(tf.multinomial(logdist, 1))[0][0]
             log_prob = tf.log(tf.nn.softmax(logdist[0])[action])
-
-        elif isinstance(a_space, gym.spaces.Box):
-            num_params = 2 * np.prod(a_space.shape)
+        else:
+            # Continuous action space
+            num_params = 2 * np.prod(a_space)
             params = lib.tf.affine(layer, num_params)
-            params = tf.reshape(params, (2,) + a_space.shape)
+            params = tf.reshape(params, (2,) + a_space)
             gauss = tf_dist.Normal(params[0], params[1])
             action = tf.stop_gradient(gauss.sample())
             log_prob = gauss.log_prob(action)
-
-        else:
-            raise ValueError("Unsupported action space")
 
         # Compute gradient
         params = tf.trainable_variables()
@@ -100,6 +98,7 @@ class PolicyAgent(lib.train.Agent):
                 return
 
             advantages = [advantage(t) for t in range(batch)]
+            advantages = normalize_adv(advantages, avg=0)
             net.grad_ascend(np.dot(advantages, elasts[0:batch]))
 
             rewards = rewards[batch:]
@@ -127,12 +126,18 @@ def run(env="CartPole-v1", steps=50000, end_reward=None,
     env = lib.wrappers.Log(env)
     env = lib.wrappers.Endless(env, end_reward)
 
-    if isinstance(env.action_space, gym.spaces.Box):
+    a_space = env.action_space
+    if isinstance(a_space, gym.spaces.Discrete):
+        a_space = a_space.n
+    elif isinstance(a_space, gym.spaces.Box):
         env = lib.wrappers.WrapActions(env)
+        a_space = a_space.shape
+    else:
+        raise ValueError("Unsupported action space")
 
     agent = PolicyAgent(
-        o_space=env.observation_space,
-        a_space=env.action_space,
+        o_space=env.observation_space.shape,
+        a_space=a_space,
         **kwargs
     )
 
