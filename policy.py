@@ -125,12 +125,17 @@ def run(env="CartPole-v1", steps=50000, end_reward=None,
         **kwargs):
     env = gym.make(env)
     env = lib.wrappers.Log(env)
-    env = lib.wrappers.Continuous(env, end_reward)
+    env = lib.wrappers.Endless(env, end_reward)
+
+    if isinstance(env.action_space, gym.spaces.Box):
+        env = lib.wrappers.WrapActions(env)
+
     agent = PolicyAgent(
         o_space=env.observation_space,
         a_space=env.action_space,
         **kwargs
     )
+
     lib.train.thread(env, agent, steps)
 
 if __name__ == "__main__":

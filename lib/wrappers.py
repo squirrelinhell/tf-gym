@@ -3,9 +3,10 @@ import os
 import sys
 import gym
 import gym.wrappers
+import gym.spaces
 import numpy as np
 
-class Continuous(gym.Wrapper):
+class Endless(gym.Wrapper):
     def __init__(self, env, end_reward=None):
         super().__init__(env)
 
@@ -19,6 +20,24 @@ class Continuous(gym.Wrapper):
             return obs, reward, done, info
 
         self._step = do_step
+
+class WrapActions(gym.Wrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+        low = self.action_space.low
+        diff = self.action_space.high - low
+        assert (diff > 0.001).all()
+        assert (diff < 1000).all()
+
+        def do_step(action):
+            action = np.asarray(action)
+            action = np.abs((action - 1.0) % 4.0 - 2.0) * 0.5
+            action = diff * action + low
+            return self.env._step(action)
+
+        self._step = do_step
+        self.action_space = gym.spaces.Box(-np.inf, np.inf, low.shape)
 
 class Log(gym.Wrapper):
     def __init__(self, env, log_dir="", video_every=0):
