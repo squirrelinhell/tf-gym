@@ -78,8 +78,7 @@ def running_normalize(lr = 0.0001):
 
 class PolicyAgent(lib.train.Agent):
     def __init__(self,
-            discount=0.9, horizon=500,
-            batch=128, end_penalty=-100,
+            discount=0.9, horizon=500, batch=128,
             normalize_adv=0.0, normalize_obs=0.0,
             **kwargs):
         normalize_adv = running_normalize(lr=normalize_adv)
@@ -115,9 +114,6 @@ class PolicyAgent(lib.train.Agent):
             return action
 
         def take_reward(reward, episode_end):
-            if episode_end:
-                reward = end_penalty
-
             rewards.append(reward)
             assert len(rewards) == len(elasts)
 
@@ -126,8 +122,12 @@ class PolicyAgent(lib.train.Agent):
         self.next_action = next_action
         self.take_reward = take_reward
 
-def run(env="CartPole-v1", steps=50000, *args, **kwargs):
-    env = lib.wrappers.Log(gym.make(env))
+def run(env="CartPole-v1",
+        steps=50000, end_reward=None,
+        *args, **kwargs):
+    env = gym.make(env)
+    env = lib.wrappers.Log(env)
+    env = lib.wrappers.Continuous(env, end_reward)
     agent = PolicyAgent(
         o_space=env.observation_space,
         a_space=env.action_space,
