@@ -13,13 +13,12 @@ import lib.wrappers
 import lib.tf
 
 class PolicyNetwork:
-    def __init__(self, o_space, a_space,
-            hidden_layer=8, lr=0.02, eps=0.0001):
+    def __init__(self, o_space, a_space, lr=0.02, eps=0.0001):
         obs = tf.placeholder(tf.float32, o_space.shape)
 
         # Build graph
         layer = tf.reshape(obs, [1, -1])
-        layer = lib.tf.affine(layer, hidden_layer)
+        layer = lib.tf.affine(layer, 2 * np.prod(o_space.shape))
         layer = tf.nn.relu(layer)
 
         if isinstance(a_space, gym.spaces.Discrete):
@@ -78,7 +77,7 @@ def running_normalize(lr = 0.0001):
 
 class PolicyAgent(lib.train.Agent):
     def __init__(self,
-            discount=0.9, horizon=500, batch=128,
+            horizon=50, batch=128,
             normalize_adv=0.0, normalize_obs=0.0,
             **kwargs):
         normalize_adv = running_normalize(lr=normalize_adv)
@@ -91,7 +90,7 @@ class PolicyAgent(lib.train.Agent):
         def advantage(time):
             sum_r = 0.0
             for t1 in reversed(range(time, time + horizon)):
-                sum_r *= discount
+                sum_r *= 1.0 - (1.0/horizon)
                 sum_r += rewards[t1]
             return sum_r
 
@@ -123,14 +122,14 @@ class PolicyAgent(lib.train.Agent):
         self.take_reward = take_reward
 
 def run(env="CartPole-v1", steps=50000, end_reward=None,
-        *args, **kwargs):
+        **kwargs):
     env = gym.make(env)
     env = lib.wrappers.Log(env)
     env = lib.wrappers.Continuous(env, end_reward)
     agent = PolicyAgent(
         o_space=env.observation_space,
         a_space=env.action_space,
-        *args, **kwargs
+        **kwargs
     )
     lib.train.thread(env, agent, steps)
 
