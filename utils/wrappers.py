@@ -6,7 +6,7 @@ import gym.wrappers
 import gym.spaces
 import numpy as np
 
-class Endless(gym.Wrapper):
+class EndlessEpisode(gym.Wrapper):
     def __init__(self, env, end_reward=None):
         super().__init__(env)
 
@@ -21,7 +21,7 @@ class Endless(gym.Wrapper):
 
         self._step = do_step
 
-class WrapActions(gym.Wrapper):
+class UnboundedActions(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
 
@@ -57,7 +57,7 @@ class Log(gym.Wrapper):
             video_wanted = False
             return r
 
-        if len(log_dir) >= 1:
+        if len(log_dir) >= 1 and video_every >= 1:
             env = gym.wrappers.Monitor(
                 env,
                 log_dir,
@@ -87,6 +87,7 @@ class Log(gym.Wrapper):
         def do_close():
             self.env._close()
             if len(log_dir) >= 1 and len(history) >= 1:
+                os.makedirs(log_dir, exist_ok=True)
                 np.savetxt(
                     log_dir + "/episodes.csv",
                     history,

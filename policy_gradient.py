@@ -3,7 +3,6 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.distributions as tf_dist
-
 import gym
 import gym.spaces
 
@@ -33,10 +32,10 @@ def gradient(var, params):
             ret.append(tf.reshape(g, [-1]))
     return tf.concat(ret, axis=0)
 
-def split_gradient(flat, parts):
+def split_gradient(flat, params):
     ret = []
     start, end = 0, 0
-    for p in parts:
+    for p in params:
         start, end = end, end + tf.size(p)
         ret.append((tf.reshape(flat[start:end], p.shape), p))
     return ret
@@ -102,7 +101,7 @@ def running_normalize(lr = 0.0001):
         return value / np.maximum(0.0001, stddev)
     return process
 
-class PolicyAgent(utils.train.Agent):
+class PolicyGradientAgent(utils.train.Agent):
     def __init__(self,
             horizon=50, batch=128,
             normalize_adv=0.0, normalize_obs=0.0,
@@ -153,18 +152,18 @@ def run(env="CartPole-v1", steps=50000, end_reward=None,
         **kwargs):
     env = gym.make(env)
     env = utils.wrappers.Log(env)
-    env = utils.wrappers.Endless(env, end_reward)
+    env = utils.wrappers.EndlessEpisode(env, end_reward)
 
     a_space = env.action_space
     if isinstance(a_space, gym.spaces.Discrete):
         a_space = a_space.n
     elif isinstance(a_space, gym.spaces.Box):
-        env = utils.wrappers.WrapActions(env)
+        env = utils.wrappers.UnboundedActions(env)
         a_space = a_space.shape
     else:
         raise ValueError("Unsupported action space")
 
-    agent = PolicyAgent(
+    agent = PolicyGradientAgent(
         o_space=env.observation_space.shape,
         a_space=a_space,
         **kwargs

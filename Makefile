@@ -6,16 +6,20 @@ COMMA := ,
 
 all: \
 	qlearning \
-	policy \
+	policy_gradient \
+	evolution_strategy \
 
 qlearning: \
 	$R/qlearning.png
 
-policy: \
-	$R/policy,end_reward\:-100.png \
-	$R/policy,end_reward\:-100,batch\:512,lr\:0.03.png \
-	$R/policy,end_reward\:-100,normalize_obs\:0.00003.png \
-	$R/policy,end_reward\:-100,normalize_adv\:0.5.png \
+policy_gradient: \
+	$R/policy_gradient,end_reward\:-100.png \
+	$R/policy_gradient,end_reward\:-100,batch\:512,lr\:0.03.png \
+	$R/policy_gradient,end_reward\:-100,normalize_obs\:0.00003.png \
+	$R/policy_gradient,end_reward\:-100,normalize_adv\:0.5.png \
+
+evolution_strategy: \
+	$R/evolution_strategy.png \
 
 # Global
 
@@ -23,19 +27,20 @@ policy: \
 
 $R/%,1.png: \
 		$R/run/%/results.csv
-	@echo ./lib/plot.py '->' $@
-	@PLOT_FILE=$@ ./lib/plot.py $^
+	@echo ./utils/plot.py '->' $@
+	@PLOT_FILE=$@ ./utils/plot.py $^
 
 $R/%.png: \
 		$R/run/%,run1/results.csv \
 		$R/run/%,run2/results.csv \
 		$R/run/%,run3/results.csv \
 		$R/run/%,run4/results.csv
-	@echo ./lib/plot.py '->' $@
-	@PLOT_FILE=$@ ./lib/plot.py $^
+	@echo ./utils/plot.py '->' $@
+	@PLOT_FILE=$@ ./utils/plot.py $^
 
 $R/run/%/results.csv:
 	@echo ./$(firstword $(subst $(COMMA), ,$*)).py '->' $@
-	@LOG_DIR=$R/run/$* ./$(firstword $(subst $(COMMA), ,$*)).py \
+	@mkdir -p $(dir $@)
+	@LOG_DIR=$(dir $@) ./$(firstword $(subst $(COMMA), ,$*)).py \
 		$(subst $(firstword $(subst $(COMMA), ,$*))$(COMMA),,$*)
 	@mv $(dir $@)/episodes.csv $@
