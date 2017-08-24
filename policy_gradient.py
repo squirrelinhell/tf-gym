@@ -10,13 +10,15 @@ import utils
 
 def affine(x, out_dim):
     assert len(x.shape.as_list()) == 2
+    in_dim = int(x.shape[1])
+    stddev = 1 / np.sqrt(in_dim + 1)
     w = tf.Variable(tf.truncated_normal(
-        stddev = 0.1,
-        shape = [int(x.shape[1]), out_dim],
+        stddev = stddev,
+        shape = [in_dim, out_dim],
         dtype = x.dtype
     ))
     b = tf.Variable(tf.truncated_normal(
-        stddev = 0.1,
+        stddev = stddev,
         shape = [out_dim],
         dtype = x.dtype
     ))

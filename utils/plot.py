@@ -18,9 +18,9 @@ def plot_csv(*csv_files):
     cols = list(np.genfromtxt(csv_files[0], names=True).dtype.names)
     assert len(cols) >= 2
 
-    fig, axes = plt.subplots(nrows=len(cols)-1, sharex=True)
-    axes[-1].set_xlabel(cols[0])
+    fig, axes = plt.subplots(ncols=len(cols)-1)
     for col, ax in zip(cols[1:], axes):
+        ax.set_xlabel(cols[0])
         ax.set_ylabel(col)
         ax.grid()
 
@@ -34,12 +34,12 @@ def plot_csv(*csv_files):
     labels = list(map(os.path.basename, csv_files))
     if len(set(labels)) < len(csv_files):
         labels = ["/".join(n.split("/")[-2:]) for n in csv_files]
-    plt.figlegend(handles=patches, labels=labels, loc=3)
+    plt.figlegend(handles=patches, labels=labels, loc=4)
 
     if plot_file is None:
         plt.show()
     else:
-        fig.set_size_inches(10, 8)
+        fig.set_size_inches(12, 8)
         fig.savefig(plot_file, dpi=100)
 
 def _running_mean(data, window):

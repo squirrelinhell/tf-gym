@@ -113,7 +113,7 @@ class EvolutionStrategyAgent(utils.train.Agent):
         self.next_action = net.get_action
         self.take_reward = take_reward
 
-def run(env="BipedalWalker-v2", steps=2000000, ep_limit=300, **kwargs):
+def run(env="BipedalWalker-v2", steps=1000000, ep_limit=300, **kwargs):
     env = gym.make(env)
     env = utils.wrappers.LimitedEpisode(env, ep_limit)
     env = utils.wrappers.Log(env)
