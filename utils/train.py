@@ -1,4 +1,5 @@
 
+import sys
 import time
 
 class Agent:
@@ -24,11 +25,11 @@ def thread(env, agent, steps=50000, print_stats=True):
     env.close()
 
     if print_stats:
-        print(
-            "Finished %d training steps in %.2fs: %.2f steps/s" %
-                (steps, train_time, steps/train_time),
-            flush=True
+        sys.stderr.write(
+            "Finished %d training steps in %.2fs: %.2f steps/s\n" %
+                (steps, train_time, steps/train_time)
         )
+        sys.stderr.flush()
 
     return history
 

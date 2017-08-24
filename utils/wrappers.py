@@ -16,10 +16,34 @@ class EndlessEpisode(gym.Wrapper):
                 done = False
                 obs = self.env._reset()
                 if end_reward is not None:
-                    reward = end_reward
+                    reward = float(end_reward)
             return obs, reward, done, info
 
         self._step = do_step
+
+class LimitedEpisode(gym.Wrapper):
+    def __init__(self, env, max_steps, interrupt_reward=None):
+        super().__init__(env)
+
+        ep_steps = 0
+        def do_step(action):
+            nonlocal ep_steps
+            obs, reward, done, info = self.env._step(action)
+            ep_steps += 1
+            assert ep_steps <= max_steps
+            if ep_steps == max_steps:
+                done = True
+                if interrupt_reward is not None:
+                    reward = float(interrupt_reward)
+            return obs, reward, done, info
+
+        def do_reset():
+            nonlocal ep_steps
+            ep_steps = 0
+            return self.env._reset()
+
+        self._step = do_step
+        self._reset = do_reset
 
 class UnboundedActions(gym.Wrapper):
     def __init__(self, env):
@@ -49,7 +73,7 @@ class Log(gym.Wrapper):
         t = 0
         ep_r, ep_steps = 0.0, 0
         video_wanted = False
-        history = []
+        episodes_file = None
 
         def should_record_video(_):
             nonlocal video_wanted
@@ -57,13 +81,17 @@ class Log(gym.Wrapper):
             video_wanted = False
             return r
 
-        if len(log_dir) >= 1 and video_every >= 1:
+        if len(log_dir) >= 1:
+            os.makedirs(log_dir, exist_ok=True)
             env = gym.wrappers.Monitor(
                 env,
                 log_dir,
                 video_callable=should_record_video,
                 force = True
             )
+            episodes_file = open(log_dir + "/episodes.csv", "w")
+            episodes_file.write("#     step  ep_reward   ep_steps\n")
+            episodes_file.flush()
 
         super().__init__(env)
 
@@ -79,21 +107,20 @@ class Log(gym.Wrapper):
             ep_steps += 1
 
             if done:
-                history.append([t, ep_r, ep_steps])
+                episodes_file.write(
+                    "%10d %10.2f %10d\n" % (t, ep_r, ep_steps)
+                )
+                episodes_file.flush()
                 ep_r, ep_steps = 0.0, 0
 
             return obs, reward, done, info
 
         def do_close():
+            nonlocal episodes_file
+            if episodes_file is not None:
+                episodes_file.close()
+                episodes_file = None
             self.env._close()
-            if len(log_dir) >= 1 and len(history) >= 1:
-                os.makedirs(log_dir, exist_ok=True)
-                np.savetxt(
-                    log_dir + "/episodes.csv",
-                    history,
-                    fmt = "%10d %10.2f %10d",
-                    header = "    step  ep_reward   ep_steps"
-                )
 
         self._step = do_step
         self._close = do_close
