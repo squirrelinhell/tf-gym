@@ -139,7 +139,7 @@ class PolicyGradientAgent(utils.train.Agent):
         self.next_action = next_action
         self.take_reward = take_reward
 
-def run(env="CartPole-v1", steps=50000, end_reward=-100, **kwargs):
+def run(env="CartPole-v1", steps=100000, end_reward=-100, **kwargs):
     env = gym.make(env)
     env = utils.wrappers.Log(env)
     env = utils.wrappers.EndlessEpisode(env, end_reward)

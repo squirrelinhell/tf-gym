@@ -79,7 +79,7 @@ class PolicyNetwork:
         )
 
 class EvolutionStrategyAgent(utils.train.Agent):
-    def __init__(self, population=20, lr=0.03, noise=0.1,
+    def __init__(self, population=20, lr=0.07, noise=0.1,
             **kwargs):
         net = PolicyNetwork(**kwargs)
         rewards = [0.0]
@@ -95,9 +95,7 @@ class EvolutionStrategyAgent(utils.train.Agent):
             if len(noise_vs) < population:
                 return
 
-            noise_vs = np.array(noise_vs)
-            noise_vs /= population * np.square(noise)
-            grad = np.dot(normalized(rewards), noise_vs)
+            grad = normalized(np.dot(rewards, noise_vs))
             net.add_to_params(lr * grad)
 
             rewards = []

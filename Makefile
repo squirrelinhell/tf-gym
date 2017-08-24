@@ -10,27 +10,27 @@ all: \
 	evolution_strategy \
 
 qlearning: \
-	$R/qlearning.png
+	$R/qlearning,4.png
 
 policy_gradient: \
-	$R/policy_gradient.png \
-	$R/policy_gradient,batch\:512,lr\:0.03.png \
-	$R/policy_gradient,normalize_obs\:0.00003.png \
-	$R/policy_gradient,normalize_adv\:0.5.png \
+	$R/policy_gradient,4.png \
+	$R/policy_gradient,batch\:512,lr\:0.03,4.png \
+	$R/policy_gradient,normalize_obs\:0.00003,4.png \
+	$R/policy_gradient,normalize_adv\:0.5,4.png \
 
 evolution_strategy: \
-	$R/evolution_strategy.png \
+	$R/evolution_strategy,4.png \
 
 # Global
 
 .SECONDARY:
 
-$R/%,1.png: \
+$R/%.png: \
 		$R/log/%/results.csv
 	@echo ./utils/plot.py '->' $@
 	@PLOT_FILE=$@ ./utils/plot.py $^
 
-$R/%.png: \
+$R/%,4.png: \
 		$R/log/%,run1/results.csv \
 		$R/log/%,run2/results.csv \
 		$R/log/%,run3/results.csv \
