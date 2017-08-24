@@ -5,7 +5,7 @@ import sys
 import time
 import numpy as np
 
-def plot_results(*result_files):
+def plot_csv(*csv_files):
     plot_file = _getenv("PLOT_FILE")
 
     import matplotlib
@@ -13,23 +13,27 @@ def plot_results(*result_files):
         matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import matplotlib.patches
-    fig, [ax1, ax2] = plt.subplots(nrows=2, sharex=True)
-    ax1.set_ylabel("reward/episode")
-    ax2.set_ylabel("steps/episode")
-    ax2.set_xlabel("step")
-    ax1.grid()
-    ax2.grid()
     patches = []
 
-    for f, color in zip(result_files, "brgcmy"):
-        data = np.genfromtxt(f, names=True)
-        _add_plot(ax1, data["step"], data["ep_reward"], color)
-        _add_plot(ax2, data["step"], data["ep_steps"], color)
+    cols = list(np.genfromtxt(csv_files[0], names=True).dtype.names)
+    assert len(cols) >= 2
+
+    fig, axes = plt.subplots(nrows=len(cols)-1, sharex=True)
+    axes[-1].set_xlabel(cols[0])
+    for col, ax in zip(cols[1:], axes):
+        ax.set_ylabel(col)
+        ax.grid()
+
+    for file_name, color in zip(csv_files, "brgcmy"):
         patches.append(matplotlib.patches.Patch(color=color))
+        data = np.genfromtxt(file_name, names=True)
+
+        for col, ax in zip(cols[1:], axes):
+            _add_plot(ax, data[cols[0]], data[col], color)
 
     plt.figlegend(
         handles=patches,
-        labels=map(_plot_name, result_files),
+        labels=map(_plot_name, csv_files),
         loc=3
     )
 
@@ -64,10 +68,10 @@ def _getenv(name):
 
 def run():
     if len(sys.argv) >= 2:
-        plot_results(*sys.argv[1:])
+        plot_csv(*sys.argv[1:])
     else:
         sys.stderr.write("\nUsage:\n\n")
-        sys.stderr.write("\t" + "plot.py <results.csv> [ ... ]\n")
+        sys.stderr.write("\t" + "plot.py <f1.csv> [ ... ]\n")
         sys.stderr.write("\n")
         sys.exit(1)
 
