@@ -31,23 +31,16 @@ def plot_csv(*csv_files):
         for col, ax in zip(cols[1:], axes):
             _add_plot(ax, data[cols[0]], data[col], color)
 
-    plt.figlegend(
-        handles=patches,
-        labels=map(_plot_name, csv_files),
-        loc=3
-    )
+    labels = list(map(os.path.basename, csv_files))
+    if len(set(labels)) < len(csv_files):
+        labels = ["/".join(n.split("/")[-2:]) for n in csv_files]
+    plt.figlegend(handles=patches, labels=labels, loc=3)
 
     if plot_file is None:
         plt.show()
     else:
         fig.set_size_inches(10, 8)
         fig.savefig(plot_file, dpi=100)
-
-def _plot_name(path):
-    if path.endswith("/results.csv"):
-        path = path[:-12]
-    path = os.path.basename(path)
-    return path.replace(",", " ")
 
 def _running_mean(data, window):
     sums = np.cumsum(data, 0)

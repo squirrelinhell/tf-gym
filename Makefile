@@ -26,19 +26,19 @@ evolution_strategy: \
 .SECONDARY:
 
 $R/%,1.png: \
-		$R/run/%/results.csv
+		$R/log/%/results.csv
 	@echo ./utils/plot.py '->' $@
 	@PLOT_FILE=$@ ./utils/plot.py $^
 
 $R/%.png: \
-		$R/run/%,run1/results.csv \
-		$R/run/%,run2/results.csv \
-		$R/run/%,run3/results.csv \
-		$R/run/%,run4/results.csv
+		$R/log/%,run1/results.csv \
+		$R/log/%,run2/results.csv \
+		$R/log/%,run3/results.csv \
+		$R/log/%,run4/results.csv
 	@echo ./utils/plot.py '->' $@
 	@PLOT_FILE=$@ ./utils/plot.py $^
 
-$R/run/%/results.csv:
+$R/log/%/results.csv:
 	@echo ./$(firstword $(subst $(COMMA), ,$*)).py '->' $@
 	@mkdir -p $(dir $@)
 	@LOG_DIR=$(dir $@) ./$(firstword $(subst $(COMMA), ,$*)).py \
