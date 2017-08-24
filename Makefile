@@ -13,10 +13,10 @@ qlearning: \
 	$R/qlearning.png
 
 policy_gradient: \
-	$R/policy_gradient,end_reward\:-100.png \
-	$R/policy_gradient,end_reward\:-100,batch\:512,lr\:0.03.png \
-	$R/policy_gradient,end_reward\:-100,normalize_obs\:0.00003.png \
-	$R/policy_gradient,end_reward\:-100,normalize_adv\:0.5.png \
+	$R/policy_gradient.png \
+	$R/policy_gradient,batch\:512,lr\:0.03.png \
+	$R/policy_gradient,normalize_obs\:0.00003.png \
+	$R/policy_gradient,normalize_adv\:0.5.png \
 
 evolution_strategy: \
 	$R/evolution_strategy.png \

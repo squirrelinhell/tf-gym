@@ -43,31 +43,20 @@ def split_gradient(flat, params):
     return ret
 
 class PolicyNetwork:
-    def __init__(self, o_space, a_space, lr=0.02, eps=0.0001):
+    def __init__(self, o_space, n_actions, lr=0.02, eps=0.0001):
         obs = tf.placeholder(tf.float32, o_space)
 
-        # Build graph
+        # Policy
         layer = tf.reshape(obs, [1, -1])
         layer = affine(layer, 2 * np.prod(o_space))
         layer = tf.nn.relu(layer)
+        policy = affine(layer, n_actions)
+        action = tf.to_int32(tf.multinomial(policy, 1))[0][0]
+        policy = tf.nn.softmax(policy[0])
 
-        if isinstance(a_space, int):
-            # Discrete action space
-            logdist = affine(layer, a_space)
-            action = tf.to_int32(tf.multinomial(logdist, 1))[0][0]
-            log_prob = tf.log(tf.nn.softmax(logdist[0])[action])
-        else:
-            # Continuous action space
-            num_params = 2 * np.prod(a_space)
-            params = affine(layer, num_params)
-            params = tf.reshape(params, (2,) + a_space)
-            gauss = tf_dist.Normal(params[0], params[1])
-            action = tf.stop_gradient(gauss.sample())
-            log_prob = gauss.log_prob(action)
-
-        # Compute gradient
+        # Gradient
         params = tf.trainable_variables()
-        elasticity = gradient(log_prob, params)
+        elasticity = gradient(tf.log(policy[action]), params)
         grad_in = tf.placeholder(elasticity.dtype, elasticity.shape)
         grad_ascend = tf.train.AdamOptimizer(
             learning_rate = lr,
@@ -150,24 +139,14 @@ class PolicyGradientAgent(utils.train.Agent):
         self.next_action = next_action
         self.take_reward = take_reward
 
-def run(env="CartPole-v1", steps=50000, end_reward=None,
-        **kwargs):
+def run(env="CartPole-v1", steps=50000, end_reward=-100, **kwargs):
     env = gym.make(env)
     env = utils.wrappers.Log(env)
     env = utils.wrappers.EndlessEpisode(env, end_reward)
 
-    a_space = env.action_space
-    if isinstance(a_space, gym.spaces.Discrete):
-        a_space = a_space.n
-    elif isinstance(a_space, gym.spaces.Box):
-        env = utils.wrappers.UnboundedActions(env)
-        a_space = a_space.shape
-    else:
-        raise ValueError("Unsupported action space")
-
     agent = PolicyGradientAgent(
         o_space=env.observation_space.shape,
-        a_space=a_space,
+        n_actions=env.action_space.n,
         **kwargs
     )
 

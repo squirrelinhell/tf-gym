@@ -13,18 +13,18 @@ class NoisyParameters:
 
         params = []
         noise = []
-        starts = [0]
+        splits = [0]
 
-        def normal(shape):
+        def normal(shape, stddev):
             p = tf.Variable(tf.truncated_normal(
-                shape, dtype=dtype
+                shape, stddev=stddev, dtype=dtype
             ))
             n = tf.Variable(tf.random_normal(
                 shape, stddev=noise_stddev, dtype=dtype
             ))
             params.append(p)
             noise.append(n)
-            starts.append(starts[-1] + tf.size(p))
+            splits.append(splits[-1] + tf.size(p))
             return p + n
 
         def prepare(sess, ctl):
@@ -42,7 +42,7 @@ class NoisyParameters:
             inp = tf.placeholder(noise_v.dtype, noise_v.shape)
             add_to_params = [
                 tf.assign_add(p, tf.reshape(inp[start:end], p.shape))
-                for p, start, end in zip(params, starts, starts[1:])
+                for p, start, end in zip(params, splits, splits[1:])
             ]
             ctl.add_to_params = lambda feed_inp: sess.run(
                 add_to_params,
@@ -53,18 +53,18 @@ class NoisyParameters:
         self.prepare = prepare
 
 class PolicyNetwork:
-    def __init__(self, o_space, a_space):
+    def __init__(self, o_space, a_space, hidden_layer=100):
         obs = tf.placeholder(tf.float32, o_space)
         params = NoisyParameters()
 
         def linear(x, out_dim):
             assert len(x.shape.as_list()) == 2
             in_dim = int(x.shape[1])
-            w = params.normal([in_dim, out_dim]) / np.sqrt(in_dim)
+            w = params.normal([in_dim, out_dim], 1.0 / np.sqrt(in_dim))
             return tf.matmul(x, w)
 
         v = tf.reshape(obs, [1, -1])
-        v = linear(v, 100)
+        v = linear(v, hidden_layer)
         v = tf.tanh(v)
         v = linear(v, np.prod(a_space))
         v = tf.tanh(v)
@@ -79,7 +79,7 @@ class PolicyNetwork:
         )
 
 class EvolutionStrategyAgent(utils.train.Agent):
-    def __init__(self, population=50, lr=0.02, noise=0.1,
+    def __init__(self, population=20, lr=0.03, noise=0.1,
             **kwargs):
         net = PolicyNetwork(**kwargs)
         rewards = [0.0]
